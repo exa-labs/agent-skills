@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "2.4"
+  version: "2.5"
 ---
 
 # People search from a criteria brief
@@ -243,6 +243,21 @@ the list with `maxItems` (= `max_per_call`, ≈12) when each person needs deep m
 research, so one fixed-effort run isn't asked to spread its evidence too thin; drop `maxItems`
 for a light-rubric roster ask and instead tell the run to return every person it can verify.
 
+**Contact fields (only when the user asked for contact-ready rows at the checkpoint).** The
+Agent returns contact data as part of the output schema, so a contact-ready list is one schema
+change, not a separate step. Add the requested fields to the person object (and to the CSV
+columns in Step 6) using standard JSON Schema shapes, each nullable so an unfound value comes
+back as `null` rather than fabricated:
+
+- email: `{ "type": ["string", "null"], "format": "email" }`
+- phone: `{ "type": ["string", "null"], "format": "phone" }`
+- other public profile URLs: `{ "type": ["string", "null"], "format": "uri" }`
+
+List them in `required` like every other field. The people array's `maxItems` already bounds the
+contact-enrichment cost, but that cost is higher per person, so confirm the exact field list and
+the row cap at the checkpoint. Never fabricate a value to fill a contact field: return `null`
+when no public contact detail is found.
+
 ## Step 3 — Discovery: one Exa Agent run per segment
 
 For each segment, start an Exa Agent run with `effort: "auto"` and your output schema.
@@ -313,7 +328,7 @@ org. Corroboration query + schema are in `references/exa-agent-api.md`.
 - **Calibrate** scores down for thin/unconfirmed profiles (missing affiliation/location, low confidence) so they don't float to the top, and display each score as a **percentage of the rubric's maximum possible score** (not clipped at 100); heuristics in `references/scoring-and-calibration.md`.
 - **Drop the ineligible**: anyone whose corroboration verdict is `not_found` or `matches_criteria == "no"`, anyone currently at the excluded org, and anyone with no profile URL of any kind and no known affiliation.
 - **Rank**: confirmed-first, then by match strength, then by calibrated score.
-- **Write** `people.csv` with columns: rank, name, linkedinUrl, profileUrl, currentRole, currentAffiliation, location, score, overall_tier, confidence, one column per dimension, concerns, verify_exists, verify_match, sources, segment. `sources` is the person's grounding citation URLs joined with `" | "`; leave it empty when unknown. Also print a compact markdown table of the top results in chat.
+- **Write** `people.csv` with columns: rank, name, linkedinUrl, profileUrl, currentRole, currentAffiliation, location, score, overall_tier, confidence, one column per dimension, any contact columns (email, phone) the schema requested, concerns, verify_exists, verify_match, sources, segment. `sources` is the person's grounding citation URLs joined with `" | "`; leave it empty when unknown. Also print a compact markdown table of the top results in chat.
 - **Render the interactive viewer** from the CSV with the bundled script (the orchestrator does
   this automatically; do not hand-build HTML or copy rows into a page yourself):
   ```bash

@@ -32,5 +32,7 @@
   "discovery_effort": "auto",
   "verify_effort": "high",
   "data_sources": [],
+  "contact_fields": [],
+  "_comment_contact_fields": "Empty by default. Set ONLY when the user asked for contact-ready rows. Each entry is a shorthand string (\"email\", \"phone\", \"uri\") or {\"key\": \"workEmail\", \"format\": \"email\"} for a custom column. Fields are added to the output schema and CSV as nullable values (null when nothing public is found, never fabricated). Contact enrichment costs more per person.",
   "concurrency": 2
 }

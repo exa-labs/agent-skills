@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "_comment": "Template output schema for ONE discovery run. Replace the rubric-dimension keys (embeddedRustDepth ... communityStanding) with YOUR dimensions from Step 1. Capability dimensions use the level enum [strong, partial, none, unknown]; strength dimensions use [none, weak, medium, strong, unknown]. Add 'extra' string-array fields (e.g. openSourceFootprint.projects) where you want a captured list. Drop currentlyAtExcludedOrg if you set no exclude_org. Keep additionalProperties:false and list every field in required so the agent cannot omit fields.",
+  "_comment": "Template output schema for ONE discovery run. Replace the rubric-dimension keys (embeddedRustDepth ... communityStanding) with YOUR dimensions from Step 1. Capability dimensions use the level enum [strong, partial, none, unknown]; strength dimensions use [none, weak, medium, strong, unknown]. Add 'extra' string-array fields (e.g. openSourceFootprint.projects) where you want a captured list. Drop currentlyAtExcludedOrg if you set no exclude_org. Add contact fields (email/phone/uri, each nullable e.g. {\"type\":[\"string\",\"null\"],\"format\":\"email\"}) ONLY when the user asked for contact-ready rows. Keep additionalProperties:false and list every field in required so the agent cannot omit fields.",
   "type": "object",
   "additionalProperties": false,
   "required": ["people"],

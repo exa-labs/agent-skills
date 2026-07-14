@@ -107,6 +107,30 @@ def _grade(scale, extra=None):
     return {"type": "object", "additionalProperties": False, "required": req, "properties": props}
 
 
+CONTACT_FORMATS = {"email": "email", "phone": "phone", "uri": "uri", "url": "uri"}
+
+
+def contact_fields(cfg):
+    """Normalize cfg['contact_fields'] into [(key, json_schema_format)]. Empty by default;
+    only populated when the user asked for contact-ready rows at the checkpoint. Each entry is
+    a shorthand string ('email'/'phone'/'uri') or {'key': ..., 'format': ...} for a custom
+    column name. These become nullable string fields so an unfound value is null, never guessed."""
+    out = []
+    for f in cfg.get("contact_fields", []):
+        if isinstance(f, str):
+            key = f.strip()
+            fmt = CONTACT_FORMATS.get(key.lower())
+            if not fmt:
+                raise ValueError(f"unknown contact field {f!r}; use email/phone/uri or "
+                                 "{'key': ..., 'format': ...}")
+        elif isinstance(f, dict):
+            key, fmt = f["key"], f.get("format", "email")
+        else:
+            continue
+        out.append((key, fmt))
+    return out
+
+
 def build_schema(cfg):
     props = {
         "name": {"type": "string"}, "currentRole": {"type": "string"},
@@ -115,6 +139,9 @@ def build_schema(cfg):
         "profileUrl": {"type": ["string", "null"]},
     }
     req = list(props)
+    for key, fmt in contact_fields(cfg):
+        props[key] = {"type": ["string", "null"], "format": fmt}
+        req.append(key)
     if cfg.get("exclude_org"):
         props["currentlyAtExcludedOrg"] = {"type": "boolean"}
         req.append("currentlyAtExcludedOrg")
@@ -175,6 +202,12 @@ def discovery_query(cfg, segment):
              "NEVER fabricate a name, URL, affiliation, or number. If you cannot confirm a real LinkedIn "
              "profile, set linkedinUrl to null; set profileUrl to their best other public profile (personal "
              "site, GitHub, Scholar, org bio page), or null if none can be confirmed.")
+    cf = contact_fields(cfg)
+    if cf:
+        p.append("Also return these public contact fields for each person: "
+                 + ", ".join(k for k, _ in cf)
+                 + ". Set a field to null when no value can be confirmed; never guess or "
+                 "fabricate a contact value.")
     cap = cfg.get("max_per_call", 12)
     p.append(f"Return up to {cap} real people." if cap else
              "Return every real person you can verify matches the must-have criteria; "
@@ -452,15 +485,17 @@ def verify(cfg, people, concurrency):
 # ----------------------------- output ---------------------------
 def write_outputs(cfg, final):
     dims = [d["key"] for d in cfg["dimensions"]]
+    contacts = [k for k, _ in contact_fields(cfg)]
     cols = ["rank", "name", "linkedinUrl", "profileUrl", "currentRole", "currentAffiliation",
             "location", "score", "overall_tier", "confidence"] \
-        + dims + ["concerns", "verify_exists", "verify_match", "sources", "segment"]
+        + dims + contacts + ["concerns", "verify_exists", "verify_match", "sources", "segment"]
 
     def row(i, c):
         of = c.get("overallFit") or {}
         return [i, c.get("name"), c.get("linkedinUrl"), c.get("profileUrl"), c.get("currentRole"),
                 c.get("currentAffiliation"), c.get("location"),
                 c["_calib"], of.get("tier"), of.get("confidence")] + [lvl(c, k) for k in dims] \
+            + [c.get(k) for k in contacts] \
             + [" | ".join((of.get("concerns") or [])[:2]),
                c.get("_exists", ""), c.get("_match", ""),
                " | ".join(c.get("_sources") or []), c.get("_segment")]
