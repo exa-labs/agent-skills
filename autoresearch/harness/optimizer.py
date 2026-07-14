@@ -112,7 +112,7 @@ def apply_edit(config, ws, proposal, branch):
     prompt = render(_prompt(config, "outer_apply.md"),
                     hypothesis=proposal.get("hypothesis", ""),
                     edit_instructions=proposal.get("edit_instructions", ""))
-    res = run_claude(prompt, model=config.model("outer"), cwd=ws.clone_dir,
+    res = run_claude(prompt, model=config.model("outer"), cwd=ws.skill_dir,
                      timeout_s=config.limit("outer_timeout_s"),
                      allowed_tools=["Read", "Edit", "Write", "Grep", "Glob"],
                      disallowed_tools=["Bash", "WebFetch", "WebSearch"])
@@ -125,8 +125,9 @@ def apply_edit(config, ws, proposal, branch):
 def optimize_round(config, experiments=None, mode="replay", promote=True):
     base_ref = config["skill"]["base_ref"]
     k = experiments or config["budget"]["outer_experiments_per_round"]
-    ws = Workspace(config.skill_repo, config.path("workspace"))
-    skill_dir = ws.checkout(base_ref)
+    ws = Workspace(config.skill_repo, config.path("workspace"), config.skill_subpath)
+    ws.checkout(base_ref)
+    skill_dir = ws.skill_dir
 
     baseline = find_latest_suite(config, ref=base_ref, mode=mode, head=ws.head())
     if baseline is None:

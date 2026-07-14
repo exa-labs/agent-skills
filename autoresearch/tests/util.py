@@ -80,9 +80,13 @@ def write_csv(path, rows, columns=None):
     return path
 
 
-def make_skill_repo(path):
-    os.makedirs(path)
-    with open(os.path.join(path, "SKILL.md"), "w") as f:
+def make_skill_repo(path, subpath=""):
+    """A git repo whose SKILL.md lives at <path>/<subpath>. subpath="" is a
+    standalone skill (SKILL.md at the root); a non-empty subpath mirrors the
+    monorepo layout where the skill is a subdir of a larger repo."""
+    skill_dir = os.path.join(path, subpath)
+    os.makedirs(skill_dir)
+    with open(os.path.join(skill_dir, "SKILL.md"), "w") as f:
         f.write("# test skill\n\nStep 1: plan + checkpoint. Step 6: write candidates.csv.\n")
     env = dict(os.environ, **GIT_ENV)
     for cmd in (["git", "init", "-q", "-b", "main"], ["git", "add", "-A"],
@@ -99,11 +103,14 @@ def make_pipeline(tmp):
     os.makedirs(pdir)
     shutil.copytree(os.path.join(PIPELINE_DIR, "prompts"), os.path.join(pdir, "prompts"))
 
-    skill_repo = make_skill_repo(os.path.join(tmp, "skill-repo"))
-
     with open(os.path.join(PIPELINE_DIR, "config.json")) as f:
         cfg = json.load(f)
+    # exercise the real skill.path (monorepo subdir) against a temp repo whose
+    # default branch is main, so base_ref must be overridden to match.
+    skill_repo = make_skill_repo(os.path.join(tmp, "skill-repo"),
+                                 cfg["skill"].get("path", ""))
     cfg["skill"]["repo"] = skill_repo
+    cfg["skill"]["base_ref"] = "main"
     for k in ("inner_turn_timeout_s", "user_turn_timeout_s",
               "validator_timeout_s", "outer_timeout_s"):
         cfg["limits"][k] = 60

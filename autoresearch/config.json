@@ -1,8 +1,10 @@
 {
   "skill": {
+    "_comment": "repo is the monorepo root (this repo); path is the skill's subdir within it. base_ref is the branch holding the migrated skills — switch to main once skang/workflow-specific-skills is merged.",
     "name": "exa-candidate-sourcing",
-    "repo": "../exa-candidate-sourcing",
-    "base_ref": "main",
+    "repo": "..",
+    "path": "skills/exa-candidate-sourcing",
+    "base_ref": "skang/workflow-specific-skills",
     "promotion_branch": "pipeline/candidate"
   },
 

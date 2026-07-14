@@ -82,6 +82,31 @@ class TestWorkspace(unittest.TestCase):
         self.ws.checkout("main")
         self.assertEqual(self.ws.current_branch(), "main")
 
+    def test_monorepo_subpath_skill_dir_and_scoped_diff(self):
+        # skill lives at skills/mine/ inside a larger repo; the harness clones
+        # the whole repo but must point the LLMs at the subdir and scope diffs
+        # to it so unrelated repo files never look like the skill changed.
+        skill_rel = "skills/mine"
+        os.makedirs(os.path.join(self.source, skill_rel))
+        commit_in(self.source, os.path.join(skill_rel, "SKILL.md"),
+                  "# mono skill\n", "add skill subdir")
+        commit_in(self.source, "unrelated.txt", "harness file\n", "add sibling")
+
+        ws = Workspace(self.source, os.path.join(self.tmp, "ws-mono"), skill_rel)
+        clone = ws.checkout("main")
+        self.assertEqual(ws.skill_dir, os.path.join(clone, skill_rel))
+        self.assertTrue(os.path.isfile(os.path.join(ws.skill_dir, "SKILL.md")))
+
+        ws.create_branch("exp/001-mono", "main")
+        with open(os.path.join(ws.skill_dir, "SKILL.md"), "a") as f:
+            f.write("edited skill\n")
+        with open(os.path.join(clone, "unrelated.txt"), "a") as f:
+            f.write("edited sibling\n")
+        ws.commit_all("exp: touch both")
+        diff = ws.diff("main")
+        self.assertIn("edited skill", diff)
+        self.assertNotIn("edited sibling", diff)
+
     def test_promote_merges_and_pushes_without_touching_main(self):
         clone = self.ws.checkout("main")
         main_head = self.ws.head()

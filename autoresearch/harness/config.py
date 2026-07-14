@@ -36,6 +36,12 @@ class Config:
     def skill_repo(self):
         return os.path.normpath(os.path.join(self.pipeline_dir, self.data["skill"]["repo"]))
 
+    @property
+    def skill_subpath(self):
+        """Where the skill lives inside its repo. Empty when the skill IS the
+        repo (standalone); "skills/<name>" when it's a subdir of a monorepo."""
+        return self.data["skill"].get("path", "")
+
     def model(self, role):
         return self.data["models"][role]
 

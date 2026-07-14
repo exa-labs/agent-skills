@@ -4,10 +4,13 @@ Improves a skill by editing it against a **score**, not a vibe. The active
 target is `skill.name` in `config.json` (currently `exa-candidate-sourcing`);
 every data path (inbox, scenarios, fixtures, labels, experiment logs) is
 scoped per-skill, so adding `exa-company-research` later means a new validator
-profile + config switch, not a migration. The skill stays its own git repo;
-this harness checks it out into `workspace/`, runs experiments on branches,
-and promotes winners to a `pipeline/candidate` branch (never `main` — you
-review and merge that).
+profile + config switch, not a migration. The skill lives in this monorepo at
+`skill.path` (e.g. `skills/exa-candidate-sourcing`); `skill.repo` is the repo
+root. This harness clones the repo into `workspace/`, runs experiments on
+branches (scoped to the skill's subdir), and promotes winners to a
+`pipeline/candidate` branch (never `main` — you review and merge that). A
+standalone skill still works: leave `skill.path` empty and point `skill.repo`
+at its own repo.
 
 Four LLM roles, all `claude -p` subprocesses (stdlib-only Python around them):
 
@@ -27,7 +30,7 @@ cited source.
 
 ```bash
 # 0. one-time: make sure `claude` and EXA_API_KEY work (source ~/.zshrc)
-cd pipeline
+cd autoresearch
 
 # 1. drop your JDs into suite/inbox/exa-candidate-sourcing/ (company-research
 #    queries go in suite/inbox/exa-company-research/ for phase two), then:
@@ -94,11 +97,11 @@ the suite is re-run against it and compared to baseline
 4. composite improves ≥ 1 pt — **or** it fixes a baseline gate failure
    without regressing anything.
 
-Winners merge into `pipeline/candidate` in the skill repo. If that merge
+Winners merge into `pipeline/candidate` in the repo. If that merge
 conflicts (two rounds touching the same lines), the round still completes: the
 report carries `promotion_conflict` and the winner branch stays pushed for a
 manual merge. The workspace clone always re-syncs to the source repo's tip on
-checkout, so changes you land in the real skill repo between rounds are picked
+checkout, so changes you land in the real repo between rounds are picked
 up. Proposals that
 touch the **search stage** can't be measured against frozen fixtures — they're
 parked as `needs_live`; rerun them with `optimize --mode live` (or `suite
@@ -127,7 +130,7 @@ filters / ranks the frozen pool per the skill.
 ## Directory map
 
 ```
-pipeline/
+autoresearch/
   cli.py                 entrypoint (import|record|run|suite|compare|optimize|label|validate|status)
   config.json            models, weights, gates, budget, paths
   harness/               the library (stdlib only)
@@ -139,7 +142,7 @@ pipeline/
   regression/<skill>/    accumulating label store (labeled.jsonl) — see regression/README
   experiments/<skill>/   log.jsonl + per-round reports
   runs/                  per-run artifacts (gitignored)
-  workspace/             skill repo clone for experiments (gitignored)
+  workspace/             monorepo clone for experiments (gitignored)
   tests/                 offline suite: python3 -m unittest discover tests -t tests
 ```
 
@@ -149,8 +152,9 @@ pipeline/
   batches @ ~$0.50, plus Inner/Validator LLM turns). Replay runs cost only
   LLM turns — no Exa spend. Estimate per-round spend before `--mode live`.
 - The harness runs `claude` with `--permission-mode bypassPermissions` inside
-  per-run directories. Keep the skill repo checked out on `main` while the
-  pipeline runs (branches are pushed back to it; `main` itself is never pushed).
+  per-run directories. Keep the repo checked out on `skill.base_ref` while the
+  pipeline runs (branches are pushed back to it; that base branch itself is
+  never pushed).
 - Python 3.14 on this Mac needs `certifi` for the orchestrator's TLS; the
   harness sets `SSL_CERT_FILE` automatically when certifi is importable.
 - Inner sessions run with `--strict-mcp-config` (no inherited MCP servers —
@@ -171,4 +175,4 @@ pipeline/
   `fixtures/<scenario>/<run>/pool.json` and `verify_verdicts.json` once — the
   offline stub can't prove the harvest path against real transcript shapes.
 - Tests are fully offline (a scripted `fake_claude.py` plays all roles):
-  `cd pipeline && python3 -m unittest discover tests -t tests` — 70 tests.
+  `cd autoresearch && python3 -m unittest discover tests -t tests` — 71 tests.

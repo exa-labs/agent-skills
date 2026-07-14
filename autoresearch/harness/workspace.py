@@ -1,10 +1,16 @@
 """Git operations on the skill repository.
 
-The skill stays its own repo. The harness never edits it in place: it clones
-into pipeline/workspace/<name>/ and does all branch work there, so a crashed
+The harness never edits the skill in place: it clones the source repo into
+pipeline/workspace/<name>/ and does all branch work there, so a crashed
 experiment can never leave the user's checkout dirty. Promotion merges a
 winning experiment branch into the promotion branch (never main) and pushes
 both back to the source repo.
+
+The skill may be the whole repo (standalone) or a subdirectory of a larger
+repo (monorepo). `skill_subpath` names that subdir: git ops (branch, commit,
+diff, promote) always run on the clone root, while `skill_dir` points the
+Inner/Outer LLMs at the skill files themselves. An empty subpath means the
+skill IS the repo root.
 """
 import os
 import subprocess
@@ -28,10 +34,17 @@ def _git(repo, *args, check=True):
 
 
 class Workspace:
-    def __init__(self, source_repo, workspace_dir):
+    def __init__(self, source_repo, workspace_dir, skill_subpath=""):
         self.source_repo = os.path.abspath(source_repo)
         self.clone_dir = os.path.join(os.path.abspath(workspace_dir),
                                       os.path.basename(self.source_repo))
+        self.skill_subpath = skill_subpath
+
+    @property
+    def skill_dir(self):
+        """Absolute path to the skill files in the clone — the clone root for a
+        standalone skill, or the subdir for a monorepo skill."""
+        return os.path.normpath(os.path.join(self.clone_dir, self.skill_subpath))
 
     def ensure_clone(self):
         """Clone the skill repo into the workspace (or fetch if already there)."""
@@ -83,7 +96,10 @@ class Workspace:
         return _git(self.clone_dir, "rev-parse", "--abbrev-ref", "HEAD")
 
     def diff(self, base_ref, ref=None):
-        return _git(self.clone_dir, "diff", f"{base_ref}...{ref or 'HEAD'}")
+        args = ["diff", f"{base_ref}...{ref or 'HEAD'}"]
+        if self.skill_subpath:
+            args += ["--", self.skill_subpath]
+        return _git(self.clone_dir, *args)
 
     def branch_exists(self, branch):
         return subprocess.run(["git", "-C", self.clone_dir, "rev-parse", "--verify",

@@ -18,8 +18,9 @@ def _safe(ref):
 def run_one(config, scenario_id, ref, mode, run_id=None, record=False):
     """One scenario end to end: checkout, session, validation, (optionally)
     fixture recording. Returns (session_info, scorecard)."""
-    ws = Workspace(config.skill_repo, config.path("workspace"))
-    skill_dir = ws.checkout(ref)
+    ws = Workspace(config.skill_repo, config.path("workspace"), config.skill_subpath)
+    ws.checkout(ref)
+    skill_dir = ws.skill_dir
     scenario = get_scenario(config.path("suite"), scenario_id)
     run_id = run_id or f"{time.strftime('%Y%m%d-%H%M%S')}-{scenario_id}-{_safe(ref)}-{mode}"
 
@@ -40,7 +41,7 @@ def run_suite(config, ref, mode, scenario_ids=None, record=False):
     """Every scenario (or the given subset) against one ref. Replay scenarios
     with no fixture bundle are skipped and reported — they need a record run
     first. Writes runs/<suite_id>/suite.json and returns it."""
-    ws = Workspace(config.skill_repo, config.path("workspace"))
+    ws = Workspace(config.skill_repo, config.path("workspace"), config.skill_subpath)
     ws.checkout(ref)
     head = ws.head()
 
