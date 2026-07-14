@@ -334,7 +334,7 @@ org. Corroboration query + schema are in `references/exa-agent-api.md`.
   ```bash
   python3 orchestrator/render_viewer.py people.csv people.html --title "<objective>"
   ```
-  It embeds the CSV rows into `viewer/people-viewer.template.html` and writes one self-contained file: sortable columns, search, segment/verification filters, expandable per-person details with clickable profile and source links. **Tell the user what it is and to open it**, or they may not realize it is meant to be opened: `people.html` is the interactive viewer for the results (what they should actually review). Give them its path and tell them to open it in a browser in whatever way fits how they are working. The CSV stays the source artifact.
+  It embeds the CSV rows into `viewer/people-viewer.template.html` and writes one self-contained file: sortable columns, search, segment/verification filters, expandable per-person details with clickable profile and source links. Running this script is the **only** way the HTML gets populated: the template file is an empty shell (its data payload is `null`) until the script injects the CSV rows, so never open, edit, or hand the user the template, and never write your own HTML from the results. And the HTML is a snapshot, not a live view of the CSV: if the CSV changes (you re-run, filter, or edit rows), re-run this script or the viewer shows stale data. **Tell the user what it is and to open it**, or they may not realize it is meant to be opened: `people.html` is the interactive viewer for the results (what they should actually review). Give them its path and tell them to open it in a browser in whatever way fits how they are working. The CSV stays the source artifact.
 
 ## Tips
 
