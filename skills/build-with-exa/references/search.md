@@ -162,7 +162,7 @@ For `people` search in particular, push more of the filtering logic into the nat
 
 ## Streaming and Response Shape
 
-With `stream: true`, the search endpoint returns `text/event-stream` instead of a single JSON payload. Robust consumers should branch on the chunk `type`. Current public chunk types are `text-delta`, `grounding`, `results`, `stream-reset`, `done`, and `error`.
+Streaming is currently used only for synthesized output. When `stream: true` is paired with `outputSchema`, the search endpoint returns `text/event-stream` instead of a single JSON payload. Without `outputSchema`, it returns the normal JSON search response even when `stream` is `true`. Robust streaming consumers should branch on the chunk `type`. Current public chunk types are `text-delta`, `grounding`, `results`, `stream-reset`, `done`, and `error`.
 
 Non-streaming responses typically include:
 

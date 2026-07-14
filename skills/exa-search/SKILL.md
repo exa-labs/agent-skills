@@ -227,7 +227,7 @@ Keep schemas compact and bounded. Do not add citation fields to the schema; grou
 
 ## Streaming
 
-Use `-N`, `Accept: text/event-stream`, and `stream: true` when the caller wants incremental output.
+Streaming applies to synthesized output, so include `outputSchema` along with `-N`, `Accept: text/event-stream`, and `stream: true`. Without `outputSchema`, the endpoint returns the normal JSON search response even when `stream` is `true`.
 
 ```bash
 curl -sS -N -X POST "https://api.exa.ai/search" \
@@ -238,6 +238,13 @@ curl -sS -N -X POST "https://api.exa.ai/search" \
     "query": "recent grid-scale battery deployments",
     "type": "deep",
     "stream": true,
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" }
+      },
+      "required": ["summary"]
+    },
     "contents": {
       "highlights": true
     }
@@ -251,7 +258,6 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 | Field | Type | Description |
 | --- | --- | --- |
 | `requestId` | string | Unique request identifier. |
-| `searchType` | string | Resolved search type, useful when `type` is `auto`. |
 | `results` | array | Ranked result objects. |
 | `results[].title` | string | Page title. |
 | `results[].url` | string | Page URL. |
@@ -276,6 +282,6 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 - Do not use `useAutoprompt`, `numSentences`, or `highlightsPerUrl` in new requests.
 - Prefer `contents.maxAgeHours` over older `livecrawl` examples.
 - Use documented categories only: `company`, `people`, `research paper`, `news`, `personal site`, and `financial report`.
-- Avoid invalid category/filter combinations. `company` and `people` do not support `startPublishedDate`, `endPublishedDate`, or `excludeDomains`; `people` only accepts LinkedIn domains in `includeDomains`.
+- Avoid invalid category/filter combinations. `company` and `people` do not support `startPublishedDate` or `endPublishedDate`. `company` supports `excludeDomains`; `people` does not, and `people` only accepts LinkedIn domains in `includeDomains`.
 - Pick one of `contents.highlights`, `contents.text`, or `contents.summary` by default. Stack modes only when the caller truly needs multiple views of each page.
-- Expect `stream: true` to return SSE, not a single JSON response body.
+- Expect SSE only when `stream: true` is paired with `outputSchema`; otherwise `/search` returns its normal JSON response.
