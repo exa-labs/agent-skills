@@ -1,0 +1,1 @@
+Find me a list of Japanese companies that have recently started some kind of AI initiative that could involve or be improved by a web search API. Do not stretch the truth/ give initiatives that have low relevance

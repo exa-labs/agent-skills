@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Template output schema for ONE discovery run. Replace the rubric-dimension keys (embeddedRustDepth ... communityStanding) with YOUR dimensions from Step 1. Capability dimensions use the level enum [strong, partial, none, unknown]; strength dimensions use [none, weak, medium, strong, unknown]. Add 'extra' string-array fields (e.g. openSourceFootprint.projects) where you want a captured list. Drop currentlyAtExcludedOrg if you set no exclude_org. Keep additionalProperties:false and list every field in required so the agent cannot omit fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["people"],
+  "properties": {
+    "people": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name", "currentRole", "currentAffiliation", "location", "linkedinUrl", "profileUrl",
+          "currentlyAtExcludedOrg",
+          "embeddedRustDepth", "publicCommunication", "productionShipping",
+          "openSourceFootprint", "communityStanding",
+          "overallFit"
+        ],
+        "properties": {
+          "name": { "type": "string" },
+          "currentRole": { "type": "string" },
+          "currentAffiliation": { "type": "string" },
+          "location": { "type": ["string", "null"] },
+          "linkedinUrl": { "type": ["string", "null"] },
+          "profileUrl": { "type": ["string", "null"] },
+          "currentlyAtExcludedOrg": { "type": "boolean" },
+
+          "embeddedRustDepth": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["strong", "partial", "none", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "publicCommunication": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["strong", "partial", "none", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "productionShipping": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["strong", "partial", "none", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "openSourceFootprint": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals", "projects"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "weak", "medium", "strong", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } },
+              "projects": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "communityStanding": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "weak", "medium", "strong", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+
+          "overallFit": {
+            "type": "object", "additionalProperties": false, "required": ["tier", "confidence", "signalsUsed", "concerns"],
+            "properties": {
+              "tier": { "type": "string", "enum": ["exceptional", "strong", "moderate", "weak", "unknown"] },
+              "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+              "signalsUsed": { "type": "array", "items": { "type": "string" } },
+              "concerns": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

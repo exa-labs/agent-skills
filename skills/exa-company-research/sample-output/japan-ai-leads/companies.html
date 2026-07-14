@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companies</title>
+<style>
+  :root {
+    --black: #000911;
+    --gray-100: #faf9f8;
+    --gray-200: #f9f7f7;
+    --gray-300: #e5e5e5;
+    --gray-500: #bababa;
+    --gray-600: #6b7280;
+    --gray-700: #636262;
+    --blue: #0040f0;
+    --blue-dark: #001651;
+    --emerald: #047857;
+    --sky: #0369a1;
+    --amber: #b45309;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #ffffff; color: var(--black);
+    font-family: "ABC Diatype", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 72px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gray-600); margin-bottom: 10px;
+  }
+  h1 {
+    font-family: "ABC Arizona Flare", Georgia, "Times New Roman", serif;
+    font-size: 30px; font-weight: 400; letter-spacing: -0.01em;
+    margin: 0 0 6px; color: var(--black);
+  }
+  .meta { color: var(--gray-600); font-size: 13px; margin-bottom: 24px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls input[type="search"], .controls select {
+    padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 6px;
+    background: #ffffff; color: var(--black); font: inherit; font-size: 13px;
+  }
+  .controls input[type="search"] { flex: 1 1 200px; max-width: 320px; }
+  .controls input[type="search"]::placeholder { color: var(--gray-500); }
+  .controls input:focus, .controls select:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0, 64, 240, 0.1);
+  }
+  #count {
+    margin-left: auto; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid rgba(0, 64, 240, 0.3); background: rgba(0, 64, 240, 0.06);
+    color: var(--blue); font-size: 12px; white-space: nowrap;
+  }
+  .card {
+    border: 1px solid var(--gray-300); border-radius: 8px; background: #ffffff;
+    overflow-x: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 5px rgba(0, 0, 0, 0.03);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 880px; text-align: left; }
+  thead th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--gray-600); padding: 10px 12px; border-bottom: 1px solid var(--gray-300);
+    cursor: pointer; user-select: none; white-space: nowrap; background: #ffffff;
+  }
+  thead th.nosort { cursor: default; }
+  thead th[data-dir="asc"]::after { content: " \2191"; color: var(--black); letter-spacing: 0; }
+  thead th[data-dir="desc"]::after { content: " \2193"; color: var(--black); letter-spacing: 0; }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+  tbody tr:last-child > td { border-bottom: none; }
+  tbody tr.co { cursor: pointer; transition: background-color 0.15s; }
+  tbody tr.co:hover { background: var(--gray-100); }
+  td.rank { color: var(--gray-500); font-variant-numeric: tabular-nums; width: 40px; }
+  .name { display: flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+  .name svg { flex: none; }
+  .name a { display: inline-flex; color: var(--gray-500); }
+  .name a:hover { color: var(--blue); }
+  .shield-ok { color: #059669; }
+  .shield-warn { color: #f59e0b; }
+  .shield-bad { color: var(--red); }
+  .sub, td.dim { color: var(--gray-600); font-size: 12px; }
+  .sub { max-width: 340px; white-space: normal; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .pill b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tone-em { color: var(--emerald); }
+  .tone-sky { color: var(--sky); }
+  .tone-am { color: var(--amber); }
+  .tone-gray { color: var(--gray-600); }
+  .nosignal { color: var(--gray-500); font-size: 12px; }
+  .track { height: 6px; width: 56px; border-radius: 999px; background: #f1efee; overflow: hidden; }
+  .fill { display: block; height: 100%; border-radius: 999px; }
+  .fill.blue { background: var(--blue); }
+  .chev { color: var(--gray-500); display: inline-block; transition: transform 0.15s; }
+  tr.open .chev { transform: rotate(90deg); }
+  tr.detail > td { background: rgba(250, 249, 248, 0.6); padding: 16px 20px 18px; }
+  .detail-grid { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .detail-grid { grid-template-columns: 1fr 1fr; } }
+  .dlabel {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gray-600); margin-bottom: 8px;
+  }
+  .grade-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; margin-bottom: 8px; }
+  .grade-row .glabel { width: 176px; flex: none; padding-top: 2px; color: var(--gray-700); }
+  .lvl {
+    display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px;
+    border: 1px solid; padding: 1px 8px; font-size: 11px; font-weight: 500;
+  }
+  .lvl-strong, .lvl-yes, .lvl-true { border-color: #a7f3d0; background: #ecfdf5; color: var(--emerald); }
+  .lvl-medium { border-color: #bae6fd; background: #f0f9ff; color: var(--sky); }
+  .lvl-partial, .lvl-weak { border-color: #fde68a; background: #fffbeb; color: var(--amber); }
+  .lvl-no { border-color: #fecaca; background: #fef2f2; color: var(--red); }
+  .lvl-none, .lvl-unknown, .lvl-false { border-color: var(--gray-300); background: var(--gray-100); color: var(--gray-600); }
+  .fact { font-size: 12px; color: var(--gray-700); line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
+  .fact.concern { color: var(--amber); }
+  .fblock { margin-bottom: 14px; }
+  .fblock:last-child { margin-bottom: 0; }
+  .links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+  .links a { display: inline-flex; align-items: center; gap: 4px; color: var(--blue); text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
+  .links span { color: var(--gray-600); }
+  .empty { color: var(--gray-600); text-align: center; padding: 36px 0; font-size: 13px; }
+  a:focus-visible, th:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .chev, tbody tr.co { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Company list</div>
+  <h1 id="title">Companies</h1>
+  <div class="meta" id="meta"></div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Search companies" aria-label="Search companies">
+    <select id="segment" hidden aria-label="Filter by segment"></select>
+    <select id="verify" hidden aria-label="Filter by verification"></select>
+    <span id="count"></span>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr id="headrow"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+</main>
+<script>
+"use strict";
+const PAYLOAD = {"title": "Japanese companies with a recent, concrete AI initiative that involves or would clearly benefit from a web search API", "csv": "companies.csv", "generated": "2026-07-08", "headers": ["rank", "company", "website", "hq", "description", "score", "initiative_name", "initiative_date", "why_search_api", "initiative_summary", "employee_count", "searchApiRelevance", "buildVsBuy", "initiativeScale", "japaneseCompany", "concreteInitiative", "overall_tier", "confidence", "concerns", "verify_exists", "verify_website", "corrections", "sources", "segment"], "rows": [["1", "Stockmark Inc.", "https://stockmark.co.jp/", "Tokyo, Japan", "Enterprise AI knowledge and research platform for R&D, market analysis, and business intelligence.", "100", "Aconnect", "2025-07", "Aconnect needs a search API to continuously retrieve, index, and summarize relevant external sources like news, patents, and papers.", "Aconnect is Stockmark's enterprise AI agent platform for research and knowledge work. It combines internal knowledge with large-scale external sources such as news, patents, and academic papers to help teams monitor markets and explore technical topics.", "130", "strong", "strong", "strong", "yes", "yes", "exceptional", "high", "Focuses on enterprise knowledge/research rather than a general-purpose public web search product.", "confirmed", "valid", "", "", "ai_products"], ["2", "Uzabase, Inc.", "https://www.uzabase.com/", "Chiyoda-ku, Tokyo", "Business intelligence and economic information platform for market analysis and corporate strategy.", "100", "Speeda AI Agent", "2025-06", "Speeda AI Agent needs a search API to gather current market, company, and industry information for Flash Research and Deep Research workflows.", "Speeda AI Agent is an agentic research tool built into Uzabase's business intelligence platform. It supports rapid 'Flash Research' and deeper analysis workflows for market research and competitive intelligence.", "417", "strong", "strong", "strong", "yes", "yes", "exceptional", "high", "Relies heavily on proprietary business data, so it is not a pure open-web search product.", "confirmed", "valid", "", "", "ai_products"], ["3", "LY Corporation", "https://lycorp.co.jp/", "Chiyoda, Tokyo, Japan", "Japanese internet company operating Yahoo! JAPAN and LINE with large-scale consumer and enterprise web services.", "100", "Agent i", "2026-04", "Agent i needs live retrieval from search, news, weather, and shopping data to answer users accurately and perform tasks.", "Agent i is a unified AI agent brand across LINE and Yahoo! JAPAN, positioned as an everyday assistant for users. LY is expanding it toward task execution, memory, and business use cases across its ecosystem.", "1485", "strong", "strong", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "", "https://www.lycorp.co.jp/en/news/release/020398/ | https://www.lycorp.co.jp/ja/news/release/020366/", "partnerships"], ["4", "DATAZORA株式会社", "https://datazora.com/", "Minato, Tokyo, Japan", "Enterprise AI data infrastructure and corporate intelligence platform for sales, GTM, and investment research.", "100", "KIJI (Corporate Intelligence AI API / MCP Server)", "2026-03", "KIJI is effectively a search-and-context API for agents that need current Japanese corporate intelligence.", "KIJI is an AI data infrastructure layer that exposes structured and unstructured Japanese company information through APIs and MCP servers. It is designed to power agents and search-driven workflows for sales, market intelligence, and investment research.", "6", "strong", "strong", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "", "https://www.datazora.com/ | https://datazora.com/en", "partnerships"], ["5", "株式会社三菱総合研究所", "https://www.mri.co.jp/", "Chiyoda-ku, Tokyo, Japan", "Japanese think tank and consulting firm that also provides IT services and analytics products.", "99", "AI Memory RAG", "2026-07", "It needs a search API to continuously retrieve and reason over current news and other external documents for intelligence analysis.", "AI Memory RAG is a retrieval-augmented system that tracks time-series changes in information and supports decision-making over documents such as news and meeting minutes. It is designed for intelligence analysis, where freshness and historical context both matter.", "4287", "strong", "medium", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "", "https://prtimes.jp/main/html/rd/p/000000265.000050210.html", "jp_tech_press"], ["6", "Japan Exchange Group, Inc.", "https://www.jpx.co.jp/", "Tokyo, Japan", "Japan's market infrastructure and exchange operator.", "99", "J-LENS", "2025-12", "Its core function is searching and synthesizing disclosure filings, which is exactly the kind of workflow a web search API or document search API serves.", "J-LENS is an AI-powered natural-language search service for corporate disclosure documents. It lets users query TDnet disclosures and retrieve relevant filings for market and company intelligence.", "", "strong", "medium", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "The named initiative is operated/developed by JPX Market Innovation & Research, Inc. (JPXI), a JPX group company, rather than clearly by the listed parent legal entity Japan Exchange Group, Inc. itself. Source: https://www.jpx.co.jp/english/corporate/news/news-releases/6020/20251209-01.html", "https://www.jpx.co.jp/english/corporate/news/news-releases/6020/20251209-01.html", "jp_tech_press"], ["7", "Nikkei Inc.", "https://www.nikkei.com/", "Tokyo, Japan", "Business news and financial information publisher and data platform operator.", "87", "NIKKEI KAI", "2025-03", "The service depends on rapid retrieval of current articles and data from Nikkei's databases, which is a direct search API use case.", "NIKKEI KAI is a professional generative-AI research service built on Nikkei's extensive news and economic databases. It provides citation-backed answers and report drafting for corporate users who need current market intelligence.", "1500", "strong", "strong", "strong", "yes", "yes", "strong", "high", "", "confirmed", "valid", "The corporate information website for Nikkei Inc. is https://www.nikkei.co.jp/nikkeiinfo/ ; https://www.nikkei.com/ is a Nikkei-operated news/service site rather than the main corporate profile site. Sources: https://www.nikkei.co.jp/nikkeiinfo/en/corporate/ ; https://www.nikkei.com/lounge/privacy/en/privacy.html", "https://www.nikkei.com/article/DGXZQOUC13DEX0T10C25A3000000/ | https://prtimes.jp/main/html/rd/p/000000596.000011115.html", "jp_tech_press"], ["8", "JAPAN AI株式会社", "https://japan-ai.co.jp/", "Shinjuku, Tokyo, Japan", "AI development and consulting company focused on enterprise AI agents and RAG systems.", "87", "Multimodal RAG implementation", "2025-09", "It needs a search API to retrieve and ground answers across enterprise documents, including visual materials and structured data.", "This initiative extends RAG to both text and visual data so enterprises can ask questions over complex technical documents like drawings and charts. It is aimed at manufacturing and other document-heavy workflows.", "", "strong", "strong", "strong", "yes", "yes", "strong", "high", "", "confirmed", "valid", "", "https://ascii.jp/elem/000/004/319/4319299/", "jp_tech_press"], ["9", "Sparticle株式会社", "https://gbase.ai/", "Chuo, Tokyo, Japan", "Developer of an AI knowledge-agent platform for enterprise knowledge work.", "87", "GBase", "2025-06", "A web search API fits when the agent has to gather current facts, market context, or source material beyond internal files.", "GBase is an AI knowledge agent that helps employees gather information and produce documents across enterprise tools. It uses RAG and agent workflows to turn internal company content into actionable answers and outputs.", "", "strong", "strong", "strong", "yes", "yes", "strong", "high", "", "confirmed", "valid", "initiative_date should be specified as 2025-06-11 for the formal GBase release (source: https://news.sparticle.com/news/pr_gbase/).", "https://prtimes.jp/main/html/rd/p/000000115.000087269.html | https://ascii.jp/elem/000/004/281/4281053/", "jp_tech_press"], ["10", "株式会社FRONTEO", "https://www.fronteo.com/", "Tokyo, Japan", "Provider of legal-tech and enterprise AI solutions based on its proprietary KIBIT engine.", "87", "KIBIT Libria", "2025-12", "It needs retrieval infrastructure for enterprise document search and can use live web search to enrich or validate evidence outside internal files.", "KIBIT Libria is an AI knowledge-management and document-analysis product built on FRONTEO's proprietary AI engine. It searches large unstructured document sets and uses generative AI to summarize and support decision-making.", "", "strong", "strong", "strong", "yes", "yes", "strong", "high", "", "confirmed", "valid", "initiative_date should be specified as 2025-12-09 for initial KIBIT Libria launch; a later 2026-05-21 update added generative-AI API integration. Sources: https://www.fronteo.com/news/pr/20251209 and https://www.fronteo.com/news/pr/20260521", "https://www.fronteo.com/news/pr/20251209", "jp_tech_press"]], "tableCols": ["initiative_name", "initiative_date", "employee_count"]};
+(function () {
+  const $ = (id) => document.getElementById(id);
+  if (!PAYLOAD || !Array.isArray(PAYLOAD.headers)) {
+    $("meta").textContent = "No data embedded. Generate this file with: python3 orchestrator/render_viewer.py companies.csv companies.html";
+    return;
+  }
+  const headers = PAYLOAD.headers;
+  const rows = PAYLOAD.rows || [];
+  const idx = new Map(headers.map((h, i) => [h, i]));
+  const has = (c) => idx.has(c);
+  const val = (row, c) => {
+    const i = idx.get(c);
+    return i === undefined || row[i] == null ? "" : String(row[i]).trim();
+  };
+
+  document.title = PAYLOAD.title || "Companies";
+  $("title").textContent = PAYLOAD.title || "Companies";
+  $("meta").textContent = rows.length + " companies · " + (PAYLOAD.csv || "companies.csv") +
+    (PAYLOAD.generated ? " · generated " + PAYLOAD.generated : "");
+
+  function safeUrl(u) {
+    if (!u) return null;
+    if (!/^[a-z]+:\/\//i.test(u) && /^[\w-]+(\.[\w-]+)+([/?#]|$)/.test(u)) u = "https://" + u;
+    try {
+      const p = new URL(u).protocol;
+      return p === "https:" || p === "http:" ? u : null;
+    } catch { return null; }
+  }
+  function host(u) {
+    try { return new URL(safeUrl(u) || u).hostname.replace(/^www\./, ""); } catch { return u; }
+  }
+  const nfmt = new Intl.NumberFormat("en-US");
+  function fmtVal(v) {
+    if (!/^-?\d{4,}(\.\d+)?$/.test(v) || !Number.isFinite(Number(v))) return v;
+    const n = Number(v);
+    if (/^\d{4}$/.test(v) && n >= 1800 && n <= 2199) return v; // a year, not a quantity
+    return nfmt.format(n);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function svg(size, cls, paths) {
+    const NS = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(NS, "svg");
+    s.setAttribute("width", size); s.setAttribute("height", size);
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("fill", "none");
+    s.setAttribute("stroke", "currentColor"); s.setAttribute("stroke-width", "2");
+    s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+    if (cls) s.setAttribute("class", cls);
+    for (const d of paths) {
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", d);
+      s.appendChild(p);
+    }
+    return s;
+  }
+  const SHIELD = "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z";
+  const EXTERNAL = ["M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"];
+  function link(url, label) {
+    const safe = safeUrl(url);
+    if (!safe) return el("span", null, label || url);
+    const a = document.createElement("a");
+    a.href = safe; a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.appendChild(document.createTextNode(label || url));
+    a.appendChild(svg(11, null, EXTERNAL));
+    return a;
+  }
+
+  // Fact-check shield shown next to the name.
+  function shieldFor(row) {
+    const exists = val(row, "verify_exists"), site = val(row, "verify_website");
+    if (!exists || exists === "unchecked") return null;
+    const label = "Fact-check: " + exists.replace(/_/g, " ") + (site && site !== "unchecked" ? ", website " + site : "");
+    let cls = "shield-ok", extra = ["m9 12 2 2 4-4"];
+    if (exists === "not_found" || site === "wrong") { cls = "shield-bad"; extra = ["m14.5 9.5-5 5", "m9.5 9.5 5 5"]; }
+    else if (exists === "uncertain" || site === "unverifiable") { cls = "shield-warn"; extra = ["M12 8v4", "M12 16h.01"]; }
+    const s = svg(14, cls, [SHIELD].concat(extra));
+    const wrap = el("span");
+    wrap.title = label;
+    wrap.appendChild(s);
+    return wrap;
+  }
+
+  function companyCell(row) {
+    const td = el("td");
+    const nameLine = el("div", "name");
+    nameLine.appendChild(document.createTextNode(val(row, "company")));
+    const shield = shieldFor(row);
+    if (shield) nameLine.appendChild(shield);
+    const site = safeUrl(val(row, "website"));
+    if (site) {
+      const a = document.createElement("a");
+      a.href = site; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.setAttribute("aria-label", "Website for " + val(row, "company"));
+      a.appendChild(svg(13, null, EXTERNAL));
+      nameLine.appendChild(a);
+    }
+    td.appendChild(nameLine);
+    const desc = val(row, "description");
+    if (desc) td.appendChild(el("div", "sub", desc));
+    return td;
+  }
+  function scorePill(raw, tones, emptyText) {
+    const td = el("td");
+    if (raw === "") {
+      td.appendChild(el("span", "nosignal", emptyText));
+      return td;
+    }
+    const n = Number(raw);
+    if (Number.isNaN(n)) { td.textContent = raw; return td; }
+    let tone = "tone-gray";
+    for (const [min, cls] of tones) if (n >= min) { tone = cls; break; }
+    const pill = el("span", "pill");
+    const b = el("b", tone, raw);
+    const track = el("span", "track");
+    const fill = el("span", "fill blue");
+    fill.style.width = Math.max(4, Math.min(100, n)) + "%";
+    track.appendChild(fill);
+    pill.appendChild(b); pill.appendChild(track);
+    td.appendChild(pill);
+    return td;
+  }
+  function textCell(col, cls) {
+    return (row) => el("td", cls, val(row, col));
+  }
+  // A plan column in the main table: URLs become links, big numbers get separators.
+  function dataCell(col) {
+    return (row) => {
+      const v = val(row, col);
+      const td = el("td", /^-?\d+(\.\d+)?$/.test(v) ? "num" : "dim");
+      if (!v) return td;
+      if (/^https?:\/\//i.test(v)) td.appendChild(link(v, host(v)));
+      else td.textContent = fmtVal(v);
+      return td;
+    };
+  }
+  const label = (col) => {
+    const words = col.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  };
+
+  // Main columns: identity + the renderer-chosen table columns; everything else in the detail row.
+  const tableCols = (PAYLOAD.tableCols || []).filter(has);
+  const columns = [];
+  if (has("company")) {
+    if (has("rank")) columns.push({ label: "#", sortCol: "rank", cell: (r) => el("td", "rank", val(r, "rank")) });
+    columns.push({ label: "Company", sortCol: "company", cell: companyCell });
+    if (has("hq")) columns.push({ label: "HQ", sortCol: "hq", cell: textCell("hq", "dim") });
+    for (const c of tableCols) columns.push({ label: label(c), sortCol: c, cell: dataCell(c) });
+    if (has("score")) columns.push({ label: "Match", sortCol: "score", cell: (r) => scorePill(val(r, "score"), [[80, "tone-em"], [60, "tone-sky"]], "-") });
+    if (has("segment")) columns.push({ label: "Segment", sortCol: "segment", cell: textCell("segment", "dim") });
+    columns.push({ label: "", sortCol: null, cell: () => { const td = el("td"); td.appendChild(el("span", "chev", "›")); return td; } });
+  } else {
+    for (const h of headers) columns.push({ label: h, sortCol: h, cell: textCell(h) });
+  }
+  const inMainTable = new Set(["rank", "company", "website", "hq", "description", "score", "segment", "verify_exists", "verify_website", ...tableCols]);
+  const detailCols = has("company") ? headers.filter((h) => !inMainTable.has(h)) : [];
+  const LEVELS = new Set(["strong", "medium", "partial", "weak", "none", "unknown", "yes", "no", "true", "false"]);
+
+  function gradeRow(name, value, lvlCls) {
+    const row = el("div", "grade-row");
+    row.appendChild(el("span", "glabel", name));
+    row.appendChild(el("span", "lvl " + lvlCls, value));
+    return row;
+  }
+  function factBlock(name, node) {
+    const b = el("div", "fblock");
+    b.appendChild(el("div", "dlabel", name));
+    b.appendChild(node);
+    return b;
+  }
+  function detailRow(row) {
+    const tr = el("tr", "detail");
+    const td = el("td");
+    td.colSpan = columns.length;
+    const grid = el("div", "detail-grid");
+    const grades = el("div"), facts = el("div");
+
+    const FACTS = new Set(["overall_tier", "confidence", "concerns", "corrections", "sources"]);
+    const gradeWrap = el("div");
+    const leftovers = [];
+    for (const col of detailCols) {
+      const v = val(row, col);
+      if (!v || FACTS.has(col)) continue;
+      if (LEVELS.has(v.toLowerCase())) gradeWrap.appendChild(gradeRow(label(col), v, "lvl-" + v.toLowerCase()));
+      else leftovers.push(col);
+    }
+    if (gradeWrap.children.length) {
+      grades.appendChild(el("div", "dlabel", "Criteria"));
+      grades.appendChild(gradeWrap);
+    }
+
+    const tier = val(row, "overall_tier"), conf = val(row, "confidence");
+    if (tier || conf) {
+      const text = tier && conf ? tier + "; " + conf + " confidence" : tier || conf + " confidence";
+      facts.appendChild(factBlock("Overall fit", el("p", "fact", text)));
+    }
+    const concerns = val(row, "concerns");
+    if (concerns) facts.appendChild(factBlock("Concerns", el("p", "fact concern", concerns)));
+    const exists = val(row, "verify_exists"), site = val(row, "verify_website");
+    if (exists && exists !== "unchecked") {
+      const text = "Company " + exists.replace(/_/g, " ") + (site && site !== "unchecked" ? "; website " + site + "." : ".");
+      facts.appendChild(factBlock("Fact-check", el("p", "fact", text)));
+    }
+    const corrections = val(row, "corrections");
+    if (corrections) facts.appendChild(factBlock("Corrections from fact-check", el("p", "fact concern", corrections.split(" | ").join("; "))));
+    for (const col of leftovers) {
+      const v = val(row, col);
+      if (/^https?:\/\//i.test(v)) {
+        const links = el("div", "links");
+        links.appendChild(link(v, host(v)));
+        facts.appendChild(factBlock(label(col), links));
+      } else {
+        facts.appendChild(factBlock(label(col), el("p", "fact", fmtVal(v))));
+      }
+    }
+    const sources = val(row, "sources");
+    if (sources) {
+      const links = el("div", "links");
+      for (const u of sources.split(" | ")) if (u.trim()) links.appendChild(link(u.trim(), host(u.trim())));
+      facts.appendChild(factBlock("Sources", links));
+    }
+    const site2 = val(row, "website");
+    if (site2 && !safeUrl(site2)) facts.appendChild(factBlock("Website", el("p", "fact", site2)));
+
+    if (!grades.children.length && !facts.children.length) {
+      facts.appendChild(el("p", "fact", "No additional fields."));
+    }
+    grid.appendChild(grades);
+    grid.appendChild(facts);
+    td.appendChild(grid);
+    tr.appendChild(td);
+    return tr;
+  }
+
+  // Filters.
+  const search = $("search");
+  function initSelect(id, col, allLabel, order) {
+    const sel = $(id);
+    if (!has(col)) return sel;
+    const values = [...new Set(rows.map((r) => val(r, col)).filter(Boolean))];
+    if (values.length < 2) return sel;
+    values.sort(order ? (a, b) => (order.indexOf(a) + 99 * +!order.includes(a)) - (order.indexOf(b) + 99 * +!order.includes(b)) : undefined);
+    sel.hidden = false;
+    sel.appendChild(new Option(allLabel, ""));
+    for (const v of values) sel.appendChild(new Option(v, v));
+    return sel;
+  }
+  const segmentSel = initSelect("segment", "segment", "All segments");
+  const verifySel = initSelect("verify", "verify_exists", "All verification", ["confirmed", "likely", "uncertain", "unchecked", "not_found"]);
+
+  let sortCol = null, sortDir = 1;
+  function compare(a, b) {
+    const av = val(a, sortCol), bv = val(b, sortCol);
+    if (!av && !bv) return 0;
+    if (!av) return 1;
+    if (!bv) return -1;
+    const an = Number(av), bn = Number(bv);
+    const cmp = !Number.isNaN(an) && !Number.isNaN(bn) ? an - bn : av.localeCompare(bv, undefined, { sensitivity: "base" });
+    return cmp * sortDir;
+  }
+  function visibleRows() {
+    const q = search.value.trim().toLowerCase();
+    let out = rows.filter((r) =>
+      (!q || r.some((c) => c != null && String(c).toLowerCase().includes(q))) &&
+      (!segmentSel.value || val(r, "segment") === segmentSel.value) &&
+      (!verifySel.value || val(r, "verify_exists") === verifySel.value));
+    if (sortCol) out = [...out].sort(compare);
+    return out;
+  }
+
+  const headrow = $("headrow"), body = $("body");
+  for (const col of columns) {
+    const th = el("th", col.sortCol ? "" : "nosort", col.label);
+    if (col.sortCol) th.addEventListener("click", () => {
+      sortDir = sortCol === col.sortCol ? -sortDir : 1;
+      sortCol = col.sortCol;
+      render();
+    });
+    th.dataset.col = col.sortCol || "";
+    headrow.appendChild(th);
+  }
+
+  function render() {
+    for (const th of headrow.children) {
+      if (th.dataset.col && th.dataset.col === sortCol) th.dataset.dir = sortDir === 1 ? "asc" : "desc";
+      else delete th.dataset.dir;
+    }
+    body.textContent = "";
+    const shown = visibleRows();
+    $("count").textContent = shown.length + " of " + rows.length;
+    if (!shown.length) {
+      const td = el("td", "empty", rows.length ? "No companies match." : "No companies in the CSV.");
+      td.colSpan = columns.length;
+      const tr = el("tr");
+      tr.appendChild(td);
+      body.appendChild(tr);
+      return;
+    }
+    for (const row of shown) {
+      const tr = el("tr", "co");
+      for (const col of columns) tr.appendChild(col.cell(row));
+      if (detailCols.length) tr.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        if (tr.classList.toggle("open")) tr.after(detailRow(row));
+        else if (tr.nextElementSibling?.classList.contains("detail")) tr.nextElementSibling.remove();
+      });
+      body.appendChild(tr);
+    }
+  }
+
+  search.addEventListener("input", render);
+  segmentSel.addEventListener("change", render);
+  verifySel.addEventListener("change", render);
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "_comment": "Research plan for research_companies.py — this example is the worked example from references/worked-example-ai-infra.md. Fill it from the user's ask: hard_criteria make a company WRONG if unmet (filtered + verified); soft_criteria are nice-to-haves (graded, scale 'capability' or 'strength'); columns are the freeform data fields the user wants to read (type: string | number | boolean | string[]; source: 'web' or an Exa Connect provider id, which routes the field to that provider). data_sources lists the Exa Connect providers to attach — ONLY the ones a column actually needs (see references/exa-connect-providers.md). Optional fields: time_window (e.g. 'between 2026-06-08 and 2026-07-08' — use absolute dates), seed_company (competitor scans: never include the seed itself), existing_list ({file, match_on}: CSV or one-name-or-domain-per-line text to dedupe against; also settable via --exclude-file), exclude_companies (inline names/domains), geography.preferred_regions (soft +4 score bonus; HARD geography belongs in hard_criteria), table_cols (which columns show in the HTML viewer's main table).",
+  "objective": "US-based Series A or B startups building developer-facing AI infrastructure (APIs, SDKs, platforms used to build AI products)",
+  "target_count": 25,
+
+  "hard_criteria": [
+    { "key": "hqInUs", "text": "Headquartered in the United States." },
+    { "key": "stageSeriesAOrB", "text": "Most recent priced round is a Series A or Series B (not pre-seed/seed, not Series C+, not public, not acquired)." },
+    { "key": "devFacingAiInfra", "text": "Primary product is developer-facing AI infrastructure: an API, SDK, or platform other teams use to build AI products (inference, vector search, orchestration, evals, agents, data/RAG tooling) — not an end-user AI app." }
+  ],
+
+  "soft_criteria": [
+    { "key": "developerTraction", "scale": "strength", "text": "Visible developer adoption: GitHub stars, package downloads, active community, developer-forum presence." },
+    { "key": "notableCustomers", "scale": "strength", "text": "Named customers or logos, case studies, marketplace listings." },
+    { "key": "recentMomentum", "scale": "strength", "text": "Signals from the last ~12 months: funding, launches, hiring surges, major partnerships." }
+  ],
+
+  "columns": [
+    { "key": "funding_stage", "type": "string", "desc": "latest round, e.g. 'Series A'", "source": "fiber_ai" },
+    { "key": "total_raised_usd_m", "type": "number", "desc": "total raised, millions USD", "source": "fiber_ai" },
+    { "key": "employee_count", "type": "number", "desc": "approximate headcount", "source": "fiber_ai" },
+    { "key": "monthly_visits", "type": "number", "desc": "estimated monthly website visits", "source": "similarweb" },
+    { "key": "open_source", "type": "boolean", "desc": "core product is open source", "source": "web" },
+    { "key": "pricing_model", "type": "string", "desc": "'usage-based API', 'seat-based SaaS', 'open core', ...", "source": "web" }
+  ],
+  "data_sources": ["fiber_ai", "similarweb"],
+  "verify_columns": ["funding_stage", "total_raised_usd_m"],
+  "table_cols": ["funding_stage", "total_raised_usd_m", "monthly_visits"],
+
+  "existing_list": { "file": "existing.csv", "match_on": ["domain"] },
+  "exclude_companies": [],
+  "geography": { "preferred_regions": [] },
+
+  "segments": [
+    { "label": "funding_news", "focus": "Series A/B funding announcements for AI-infrastructure startups in the last 18 months — TechCrunch, VentureBeat, Axios Pro Rata, Fortune Term Sheet, company press releases." },
+    { "label": "vc_portfolios", "focus": "Portfolio pages of investors known for AI infrastructure — a16z (infra practice), Sequoia, Index, Amplify Partners, Basis Set, Conviction, Felicis, Innovation Endeavors — filtered to dev-facing AI infra at Series A/B." },
+    { "label": "yc_accelerators", "focus": "Y Combinator and Techstars alumni (last ~3 years) building AI developer tools/infra that have since raised a Series A or B." },
+    { "label": "oss_github", "focus": "Companies behind popular open-source AI-infrastructure projects on GitHub (vector DBs, LLM orchestration, eval frameworks, inference servers, agent frameworks) that have raised Series A/B." },
+    { "label": "launch_communities", "focus": "AI developer tools launched on Product Hunt or Hacker News (Show HN) in the last 2 years whose companies have since raised Series A/B." },
+    { "label": "category_directories", "focus": "Vendor directories and analyst/category lists for LLMops, vector databases, AI inference platforms, AI evals, and agent platforms (G2, curated 'AI infra landscape' posts) — extract the Series A/B US companies." }
+  ],
+
+  "max_per_call": 15,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "concurrency": 2,
+  "exclusion_cap": 100
+}

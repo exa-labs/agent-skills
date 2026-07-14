@@ -1,0 +1,76 @@
+#!/bin/bash
+# PATH shim in front of the real curl for Inner-LLM sessions. The skill is not
+# modified; its Exa traffic is intercepted at the environment level.
+#
+#   EXA_HTTP_MODE=record  — pass through, append {argv, stdout} JSONL to EXA_HTTP_LOG
+#                           for any api.exa.ai call (the recorder derives fixtures from it)
+#   EXA_HTTP_MODE=replay  — refuse api.exa.ai calls with a machine-readable error
+#                           (replay runs must work from frozen fixtures only) and
+#                           log the attempt so the harness can flag the run
+#   otherwise             — exec the real curl untouched
+#
+# REAL_CURL is set by the harness (falls back to /usr/bin/curl).
+
+REAL_CURL="${REAL_CURL:-/usr/bin/curl}"
+ARGS=("$@")
+
+is_exa=false
+for arg in "$@"; do
+  case "$arg" in *api.exa.ai*) is_exa=true ;; esac
+done
+
+if ! $is_exa; then
+  exec "$REAL_CURL" "$@"
+fi
+
+log_event() {  # $1 = kind, $2 = stdout-body file (optional)
+  [ -n "$EXA_HTTP_LOG" ] || return 0
+  python3 - "$1" "$2" "${ARGS[@]}" <<'PY' >> "$EXA_HTTP_LOG"
+import json, sys
+kind, body_file = sys.argv[1], sys.argv[2]
+argv = sys.argv[3:]
+body = ""
+if body_file:
+    try:
+        body = open(body_file, errors="replace").read()
+    except OSError:
+        pass
+print(json.dumps({"via": "curl", "kind": kind, "argv": argv, "response_body": body}))
+PY
+}
+
+case "$EXA_HTTP_MODE" in
+  replay)
+    log_event "blocked" ""
+    # honor -o/-w minimally so curl-shaped callers (like the skill's key
+    # check, which prints %{http_code}) see a sane 503 instead of JSON garbage
+    body='{"error":"LIVE_EXA_DISABLED: this session is a replay; use the frozen run outputs in ./exa_runs/ instead of calling the Exa API"}'
+    out_file="" write_fmt=""
+    prev=""
+    for arg in "${ARGS[@]}"; do
+      case "$prev" in
+        -o|--output) out_file="$arg" ;;
+        -w|--write-out) write_fmt="$arg" ;;
+      esac
+      prev="$arg"
+    done
+    if [ -n "$out_file" ] && [ "$out_file" != "/dev/null" ]; then
+      printf '%s' "$body" > "$out_file"
+    elif [ -z "$write_fmt" ]; then
+      printf '%s\n' "$body"
+    fi
+    case "$write_fmt" in *http_code*) echo "503" ;; esac
+    exit 0
+    ;;
+  record)
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
+    "$REAL_CURL" "$@" | tee "$tmp"
+    status=${PIPESTATUS[0]}
+    log_event "exchange" "$tmp"
+    exit "$status"
+    ;;
+  *)
+    exec "$REAL_CURL" "$@"
+    ;;
+esac

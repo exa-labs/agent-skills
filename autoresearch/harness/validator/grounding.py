@@ -1,0 +1,170 @@
+"""Grounded fact-checking of a run's candidates.
+
+Live (record-time) path: a Validator-LLM agent re-fetches each candidate's
+cited sources and judges whether they actually support the claimed identity,
+employer, and the scenario's semantic must-haves. Its per-candidate verdicts
+are frozen into the regression store, so they double as labels.
+
+Replay path: no network. Candidates in a replay run can only come from frozen
+fixtures, so their verdicts are joined back out of the regression store by
+candidate key. A replay candidate with no stored label means the fixtures and
+labels are out of sync — surfaced as `unlabeled`, never silently passed.
+
+Verdict shape per candidate:
+  {"key", "name", "identity": supported|unsupported|contradicted|unreachable,
+   "claims_checked", "claims_supported", "claims_contradicted", "claims_unreachable",
+   "must_haves": meets|unclear|violates, "confident": bool, "notes"}
+
+A `contradicted` identity becomes a fabricated_identity violation; a
+*confident* must-have `violates` becomes a must_have_violation. An unconfident
+"violates" is downgraded to `unclear` so a noisy judge can't flip hard gates
+run to run.
+"""
+import json
+
+from ..claude_cli import run_claude
+from ..prompt_render import render
+from .deterministic import candidate_key
+
+BATCH = 8
+
+VERDICT_KEYS = ("identity", "claims_checked", "claims_supported",
+                "claims_contradicted", "claims_unreachable", "must_haves",
+                "confident", "notes")
+
+
+def _claim_rows(rows, max_sources):
+    out = []
+    for r in rows:
+        sources = [s.strip() for s in (r.get("sources") or "").split("|") if s.strip()]
+        out.append({
+            "key": candidate_key(r),
+            "name": r.get("name"),
+            "claimed_title": r.get("currentTitle"),
+            "claimed_company": r.get("currentCompany"),
+            "claimed_location": r.get("location"),
+            "linkedin_url": r.get("linkedinUrl"),
+            "sources": sources[:max_sources],
+        })
+    return out
+
+
+def check_grounding_live(rows, scenario, config, run_dir):
+    """Fact-check candidates in batches with the Validator LLM. Returns
+    (verdicts_by_key, total_cost_usd)."""
+    with open(config.path("prompts") + "/validator_grounding.md") as f:
+        template = f.read()
+    max_src = config.limit("grounding_max_sources_per_candidate")
+    cap = config.limit("grounding_max_candidates")
+    rows = rows[:cap]
+    verdicts, cost = {}, 0.0
+    for i in range(0, len(rows), BATCH):
+        batch = _claim_rows(rows[i:i + BATCH], max_src)
+        prompt = render(template,
+                        must_haves=json.dumps(scenario.expectations.get("must_haves_semantic", []), indent=2),
+                        jd=scenario.jd,
+                        batch=json.dumps(batch, indent=2))
+        res = run_claude(prompt,
+                         model=config.model("validator"),
+                         cwd=run_dir,
+                         timeout_s=config.limit("validator_timeout_s"),
+                         allowed_tools=["WebFetch", "WebSearch", "Bash(curl:*)"],
+                         disallowed_tools=["Write", "Edit", "NotebookEdit"])
+        cost += res.cost_usd
+        if not res.ok:
+            for b in batch:
+                verdicts[b["key"]] = _error_verdict(b, f"validator turn failed: {res.error}")
+            continue
+        try:
+            payload = res.json_payload()
+            got = {v["key"]: _sanitize(v) for v in payload["candidates"] if v.get("key")}
+        except (KeyError, ValueError, TypeError) as e:
+            got = {}
+            note = f"unparseable validator output: {e}"
+        else:
+            note = "validator returned no verdict for this candidate"
+        for b in batch:
+            verdicts[b["key"]] = got.get(b["key"]) or _error_verdict(b, note)
+    return verdicts, cost
+
+
+def _error_verdict(claim_row, note):
+    return {"key": claim_row["key"], "name": claim_row["name"],
+            "identity": "unreachable", "claims_checked": 0, "claims_supported": 0,
+            "claims_contradicted": 0, "claims_unreachable": 0,
+            "must_haves": "unclear", "confident": False, "notes": note}
+
+
+def _sanitize(v):
+    out = {"key": v.get("key"), "name": v.get("name")}
+    out["identity"] = v.get("identity") if v.get("identity") in (
+        "supported", "unsupported", "contradicted", "unreachable") else "unsupported"
+    for k in ("claims_checked", "claims_supported", "claims_contradicted", "claims_unreachable"):
+        out[k] = v[k] if isinstance(v.get(k), int) and v[k] >= 0 else 0
+    mh = v.get("must_haves") if v.get("must_haves") in ("meets", "unclear", "violates") else "unclear"
+    confident = bool(v.get("confident"))
+    if mh == "violates" and not confident:
+        mh = "unclear"
+    out["must_haves"], out["confident"] = mh, confident
+    out["notes"] = str(v.get("notes") or "")[:500]
+    return out
+
+
+def join_labels(rows, labels_by_key):
+    """Replay path: pull frozen verdicts for each candidate. Returns
+    (verdicts_by_key, unlabeled_keys)."""
+    verdicts, unlabeled = {}, []
+    for r in rows:
+        key = candidate_key(r)
+        label = labels_by_key.get(key)
+        if not label:
+            unlabeled.append(key)
+            continue
+        verdict = label.get("verdict")
+        if not verdict:
+            # human label with no frozen verdict — synthesize one that carries
+            # the label's meaning into the grounding stats and violations
+            bad = label.get("label") == "violation"
+            verdict = {"key": key, "name": label.get("name"),
+                       "identity": "contradicted" if bad else "supported",
+                       "claims_checked": 0, "claims_supported": 0,
+                       "claims_contradicted": 0, "claims_unreachable": 0,
+                       "must_haves": "unclear", "confident": True,
+                       "notes": f"human label: {label.get('notes') or label.get('label')}"}
+        verdicts[key] = verdict
+    return verdicts, unlabeled
+
+
+def grounding_violations(rows, verdicts):
+    """Convert verdicts into scorecard violations (same shape as deterministic)."""
+    violations = []
+    for r in rows:
+        v = verdicts.get(candidate_key(r))
+        if not v:
+            continue
+        if v["identity"] == "contradicted":
+            violations.append({"type": "fabricated_identity", "rank": r.get("rank"),
+                               "name": r.get("name"),
+                               "detail": f"sources contradict claimed identity: {v['notes']}"})
+        if v["must_haves"] == "violates":
+            violations.append({"type": "must_have_violation", "rank": r.get("rank"),
+                               "name": r.get("name"),
+                               "detail": f"evidence shows a must-have is not met: {v['notes']}"})
+    return violations
+
+
+def grounding_stats(verdicts, unlabeled_count=0):
+    vs = list(verdicts.values())
+    checked = sum(v["claims_checked"] for v in vs)
+    return {
+        "candidates_checked": len(vs),
+        "claims_checked": checked,
+        "claims_supported": sum(v["claims_supported"] for v in vs),
+        "claims_contradicted": sum(v["claims_contradicted"] for v in vs),
+        "claims_unreachable": sum(v["claims_unreachable"] for v in vs),
+        "identity_supported": sum(1 for v in vs if v["identity"] == "supported"),
+        "identity_contradicted": sum(1 for v in vs if v["identity"] == "contradicted"),
+        "must_haves_meets": sum(1 for v in vs if v["must_haves"] == "meets"),
+        "must_haves_violates": sum(1 for v in vs if v["must_haves"] == "violates"),
+        "unlabeled": unlabeled_count,
+    }

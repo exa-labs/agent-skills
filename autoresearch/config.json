@@ -1,0 +1,70 @@
+{
+  "skill": {
+    "name": "exa-candidate-sourcing",
+    "repo": "../exa-candidate-sourcing",
+    "base_ref": "main",
+    "promotion_branch": "pipeline/candidate"
+  },
+
+  "models": {
+    "user": "claude-haiku-4-5-20251001",
+    "inner": "claude-sonnet-5",
+    "validator": "claude-sonnet-5",
+    "outer": "claude-fable-5",
+    "importer": "claude-sonnet-5"
+  },
+
+  "limits": {
+    "max_user_turns": 10,
+    "inner_turn_timeout_s": 2400,
+    "user_turn_timeout_s": 300,
+    "validator_timeout_s": 1800,
+    "outer_timeout_s": 3600,
+    "grounding_max_candidates": 60,
+    "grounding_max_sources_per_candidate": 4
+  },
+
+  "scoring": {
+    "_comment": "Run score is 0-100. Any hard violation fails the gate regardless of score. Weights must sum to 1.0.",
+    "weights": {
+      "constraints": 0.35,
+      "grounding": 0.35,
+      "delivery": 0.10,
+      "ux": 0.20
+    },
+    "hard_gates": [
+      "excluded_employer_leak",
+      "excluded_person_leak",
+      "location_violation",
+      "must_have_violation",
+      "verify_status_leak",
+      "fabricated_identity",
+      "duplicate_candidate"
+    ],
+    "compare": {
+      "min_composite_delta": 1.0,
+      "component_regression_tolerance": 2.0,
+      "regression_set_tolerance": 0
+    }
+  },
+
+  "budget": {
+    "_comment": "Large/thorough profile: full suite live-record once, iterate in replay, live-confirm winners.",
+    "suite_scenarios": "all",
+    "outer_experiments_per_round": 4,
+    "live_confirm_winners": true,
+    "estimated_cost_per_live_scenario_usd": 4.0
+  },
+
+  "paths": {
+    "_comment": "{skill} resolves to skill.name — every skill gets its own suite, inbox, fixtures, labels, and experiment log. runs/, workspace/, prompts/ are shared.",
+    "suite": "suite/scenarios/{skill}",
+    "inbox": "suite/inbox/{skill}",
+    "fixtures": "fixtures/{skill}",
+    "runs": "runs",
+    "workspace": "workspace",
+    "regression": "regression/{skill}/labeled.jsonl",
+    "experiment_log": "experiments/{skill}/log.jsonl",
+    "prompts": "prompts"
+  }
+}

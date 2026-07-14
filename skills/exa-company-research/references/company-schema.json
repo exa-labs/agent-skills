@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Template output schema for ONE discovery run. This example is filled in for the worked example (US Series A/B AI-infrastructure startups) — replace the hard-criterion keys (hqInUs, stageSeriesAOrB, devFacingAiInfra), the soft-criterion keys (developerTraction, notableCustomers, recentMomentum), and the column fields (fundingStage ... pricingModel) with YOUR plan's criteria and columns. Hard criteria use {met: [yes,no,unknown], evidence[]}. Soft criteria use {level, signals}: capability scale [strong, partial, none, unknown] for 'do they have X', strength scale [none, weak, medium, strong, unknown] for 'how much of a plus is X'. Column fields are plain typed fields — nullable, with a description that says what it is and (when an Exa Connect provider is attached) which source to use. Keep additionalProperties:false and list every field in required so the agent cannot omit fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["companies"],
+  "properties": {
+    "companies": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name", "website", "hq", "description",
+          "hqInUs", "stageSeriesAOrB", "devFacingAiInfra",
+          "developerTraction", "notableCustomers", "recentMomentum",
+          "fundingStage", "totalRaisedUsdM", "employeeCount", "monthlyVisits",
+          "openSource", "pricingModel",
+          "overallFit"
+        ],
+        "properties": {
+          "name": { "type": "string", "description": "official company name" },
+          "website": { "type": ["string", "null"], "description": "canonical homepage URL, or null if unconfirmed" },
+          "hq": { "type": ["string", "null"], "description": "HQ city/region" },
+          "description": { "type": "string", "description": "one line: what the company actually sells" },
+
+          "hqInUs": {
+            "type": "object", "additionalProperties": false, "required": ["met", "evidence"],
+            "properties": {
+              "met": { "type": "string", "enum": ["yes", "no", "unknown"] },
+              "evidence": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "stageSeriesAOrB": {
+            "type": "object", "additionalProperties": false, "required": ["met", "evidence"],
+            "properties": {
+              "met": { "type": "string", "enum": ["yes", "no", "unknown"] },
+              "evidence": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "devFacingAiInfra": {
+            "type": "object", "additionalProperties": false, "required": ["met", "evidence"],
+            "properties": {
+              "met": { "type": "string", "enum": ["yes", "no", "unknown"] },
+              "evidence": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+
+          "developerTraction": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "weak", "medium", "strong", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "notableCustomers": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "weak", "medium", "strong", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "recentMomentum": {
+            "type": "object", "additionalProperties": false, "required": ["level", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "weak", "medium", "strong", "unknown"] },
+              "signals": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+
+          "fundingStage": { "type": ["string", "null"], "description": "latest round, e.g. 'Series A'" },
+          "totalRaisedUsdM": { "type": ["number", "null"], "description": "total raised in millions USD (from Fiber.ai when attached)" },
+          "employeeCount": { "type": ["number", "null"], "description": "approximate headcount (from Fiber.ai when attached)" },
+          "monthlyVisits": { "type": ["number", "null"], "description": "estimated monthly website visits (from Similarweb when attached)" },
+          "openSource": { "type": ["boolean", "null"], "description": "true if a core product is open source" },
+          "pricingModel": { "type": ["string", "null"], "description": "e.g. 'usage-based API', 'seat-based SaaS', 'open core'" },
+
+          "overallFit": {
+            "type": "object", "additionalProperties": false, "required": ["tier", "confidence", "signalsUsed", "concerns"],
+            "properties": {
+              "tier": { "type": "string", "enum": ["exceptional", "strong", "moderate", "weak", "unknown"] },
+              "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+              "signalsUsed": { "type": "array", "items": { "type": "string" } },
+              "concerns": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

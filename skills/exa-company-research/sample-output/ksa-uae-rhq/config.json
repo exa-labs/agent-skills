@@ -1,0 +1,34 @@
+{
+  "objective": "Western companies (HQ in North America/Europe/Oceania) that announced or opened a regional headquarters in Saudi Arabia or the UAE between 2026-06-08 and 2026-07-08",
+  "mode": "exhaustive",
+  "time_window": "between 2026-06-08 and 2026-07-08",
+  "hard_criteria": [
+    { "key": "westernCompany", "text": "Global HQ in North America, Europe, or Oceania." },
+    { "key": "rhqEvent", "text": "Publicly announced opening (or receiving a license for) a regional headquarters in Saudi Arabia or the UAE, with the announcement dated between 2026-06-08 and 2026-07-08 — not merely an office, branch, or expansion talk." }
+  ],
+  "soft_criteria": [
+    { "key": "eventSpecificity", "scale": "capability", "text": "The announcement names a location, license (e.g. Saudi RHQ program), or headcount — vs a vague intent statement." }
+  ],
+  "columns": [
+    { "key": "event_date", "type": "string", "desc": "announcement date, YYYY-MM-DD", "source": "web" },
+    { "key": "hq_location", "type": "string", "desc": "Riyadh / Dubai / Abu Dhabi / ...", "source": "web" },
+    { "key": "which_program", "type": "string", "desc": "e.g. Saudi RHQ program license, DIFC, ADGM", "source": "web" },
+    { "key": "home_country", "type": "string", "desc": "company's global HQ country", "source": "web" },
+    { "key": "announcement_url", "type": "string", "desc": "URL of the dated announcement", "source": "web" }
+  ],
+  "data_sources": [],
+  "verify_columns": ["event_date", "hq_location"],
+  "table_cols": ["event_date", "hq_location", "home_country"],
+  "geography": { "preferred_regions": [] },
+  "segments": [
+    { "label": "gulf_biz_press", "focus": "Gulf business press in the window — Arabian Business, Gulf News, Zawya, Arab News business, The National — RHQ/regional HQ announcements." },
+    { "label": "gov_programs", "focus": "Saudi RHQ program / MISA license announcements and UAE free-zone (DIFC, ADGM, DMCC) new-member news in the window." },
+    { "label": "wire_services", "focus": "PR Newswire, Business Wire, GlobeNewswire releases in the window mentioning a Saudi or UAE regional headquarters." },
+    { "label": "western_press", "focus": "Western business press (Reuters, Bloomberg, FT) on companies establishing Gulf regional HQs in the window." },
+    { "label": "linkedin_moves", "focus": "LinkedIn company announcements and exec posts in the window about opening a KSA/UAE regional HQ." }
+  ],
+  "max_per_call": 12,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "concurrency": 3
+}

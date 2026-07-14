@@ -1,0 +1,36 @@
+{
+  "objective": "Speakers for an embedded-Rust conference: practitioners who ship Rust on microcontrollers or in firmware and have public speaking or writing evidence",
+  "locations": ["Europe"],
+  "exclude_org": "Ferrous Systems",
+  "exclude_people": [],
+  "_comment_exclude_people": "Optional: people to skip, e.g. already-invited or already-known. Each entry is a name (\"Jane Doe\") or a profile URL, or {\"name\": ..., \"linkedinUrl\": ...}. Also settable via --exclude-file (one per line). Fed to each run's input.exclusion and filtered from results.",
+  "rubric_must_haves": [
+    "Hands-on Rust experience in embedded systems, firmware, or bare-metal contexts (production work or a significant open-source project).",
+    "Public evidence of communicating technical work: a conference or meetup talk, substantial technical blog, podcast appearance, or well-documented project."
+  ],
+  "rubric_signals": [
+    "Maintainer or significant contributor to an embedded-Rust ecosystem project (embassy, RTIC, probe-rs, an embedded-hal driver).",
+    "Shipped Rust firmware in a commercial product.",
+    "Prior talks at systems or Rust conferences (RustConf, Oxidize, FOSDEM, embedded meetups).",
+    "Writes accessibly about low-level topics for a broad audience."
+  ],
+  "dimensions": [
+    {"key": "embeddedRustDepth", "scale": "capability"},
+    {"key": "publicCommunication", "scale": "capability"},
+    {"key": "productionShipping", "scale": "capability"},
+    {"key": "openSourceFootprint", "scale": "strength", "extra": ["projects"]},
+    {"key": "communityStanding", "scale": "strength"}
+  ],
+  "segments": [
+    {"label": "oss_maintainers", "focus": "Maintainers and top contributors of embedded-Rust ecosystem projects: embassy, RTIC, probe-rs, esp-rs, nrf-hal, stm32-rs, and widely used embedded-hal drivers; check GitHub activity and project docs for who actually does the work."},
+    {"label": "product_firmware", "focus": "Engineers shipping Rust firmware in commercial products at companies like Espressif, Oxide Computer, Memfault, 1Password (hardware), Sensirion, and embedded consultancies; look at engineering blogs and team pages."},
+    {"label": "conference_circuit", "focus": "People who have already given talks on embedded Rust or adjacent low-level topics at RustConf, Oxidize, FOSDEM, EuroRust, RustFest, or local Rust meetups; check published schedules and recorded-talk listings."},
+    {"label": "writers_educators", "focus": "Authors of substantial embedded-Rust writing: the Rust Embedded Working Group book contributors, popular tutorial series authors, course creators, and technical bloggers who cover microcontroller Rust in depth."}
+  ],
+  "max_per_call": 12,
+  "_comment_max_per_call": "People one discovery run may return per segment. ~12 when each person needs multi-dimension graded research (this config); set null for light-rubric asks like a company roster, which drops the cap so one run returns every person it can verify.",
+  "discovery_effort": "auto",
+  "verify_effort": "high",
+  "data_sources": [],
+  "concurrency": 2
+}

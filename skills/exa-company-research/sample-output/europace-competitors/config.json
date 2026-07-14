@@ -1,0 +1,34 @@
+{
+  "objective": "Competitors of Europace (europace.de, German B2B mortgage/financing transaction platform) — for an investor evaluating Europace",
+  "mode": "exhaustive",
+  "seed_company": "Europace (europace.de, Hypoport group)",
+  "hard_criteria": [
+    { "key": "competesWithSeed", "text": "Operates a mortgage/consumer-financing brokerage platform, marketplace, or origination software competing for the same lenders/brokers/borrowers as Europace — in Germany/DACH or credibly expanding into it." },
+    { "key": "activeCompany", "text": "Currently operating (not shut down; if acquired, still operating as a distinct product)." }
+  ],
+  "soft_criteria": [
+    { "key": "overlapWithEuropace", "scale": "capability", "text": "Direct product overlap with Europace's B2B platform model (vs adjacent: comparison portals, retail brokers, core-banking software)." },
+    { "key": "traction", "scale": "strength", "text": "Transaction volume, lender/broker network size, growth signals." }
+  ],
+  "columns": [
+    { "key": "exec_team", "type": "string[]", "desc": "CEO and key execs, 'Name — role'", "source": "fiber_ai" },
+    { "key": "funding_status", "type": "string", "desc": "latest round or ownership (e.g. 'Series B, $40M' / 'subsidiary of X' / 'listed')", "source": "fiber_ai" },
+    { "key": "business_model", "type": "string", "desc": "how they make money, one line", "source": "web" },
+    { "key": "monthly_visits", "type": "number", "desc": "estimated monthly site visits", "source": "similarweb" },
+    { "key": "investor_notes", "type": "string", "desc": "2-3 sentences an investor in Europace should know: positioning vs Europace, threats, recent moves", "source": "web" }
+  ],
+  "data_sources": ["fiber_ai", "similarweb"],
+  "verify_columns": ["funding_status", "exec_team"],
+  "table_cols": ["funding_status", "monthly_visits", "business_model"],
+  "geography": { "preferred_regions": [] },
+  "segments": [
+    { "label": "similar_sites", "focus": "Sites similar to europace.de per Similarweb similar-site data and 'Europace Alternativen' / competitor comparison pages." },
+    { "label": "de_fintech_press", "focus": "German fintech press (Finanz-Szene, Finance Forward, deutsche-startups.de) on mortgage/baufinanzierung platforms and Hypoport competitors — search in German." },
+    { "label": "mortgage_saas", "focus": "European mortgage-tech and loan-origination software vendors selling to banks and brokers (DACH first, then EU players entering DACH)." },
+    { "label": "broker_pools", "focus": "German broker pools and B2B financing marketplaces (e.g. the ecosystems around Interhyp, Qualitypool, Fondsfinanz) that compete for Europace's broker base." }
+  ],
+  "max_per_call": 12,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "concurrency": 2
+}

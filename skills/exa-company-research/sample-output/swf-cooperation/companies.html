@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companies</title>
+<style>
+  :root {
+    --black: #000911;
+    --gray-100: #faf9f8;
+    --gray-200: #f9f7f7;
+    --gray-300: #e5e5e5;
+    --gray-500: #bababa;
+    --gray-600: #6b7280;
+    --gray-700: #636262;
+    --blue: #0040f0;
+    --blue-dark: #001651;
+    --emerald: #047857;
+    --sky: #0369a1;
+    --amber: #b45309;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #ffffff; color: var(--black);
+    font-family: "ABC Diatype", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 72px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gray-600); margin-bottom: 10px;
+  }
+  h1 {
+    font-family: "ABC Arizona Flare", Georgia, "Times New Roman", serif;
+    font-size: 30px; font-weight: 400; letter-spacing: -0.01em;
+    margin: 0 0 6px; color: var(--black);
+  }
+  .meta { color: var(--gray-600); font-size: 13px; margin-bottom: 24px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls input[type="search"], .controls select {
+    padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 6px;
+    background: #ffffff; color: var(--black); font: inherit; font-size: 13px;
+  }
+  .controls input[type="search"] { flex: 1 1 200px; max-width: 320px; }
+  .controls input[type="search"]::placeholder { color: var(--gray-500); }
+  .controls input:focus, .controls select:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0, 64, 240, 0.1);
+  }
+  #count {
+    margin-left: auto; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid rgba(0, 64, 240, 0.3); background: rgba(0, 64, 240, 0.06);
+    color: var(--blue); font-size: 12px; white-space: nowrap;
+  }
+  .card {
+    border: 1px solid var(--gray-300); border-radius: 8px; background: #ffffff;
+    overflow-x: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 5px rgba(0, 0, 0, 0.03);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 880px; text-align: left; }
+  thead th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--gray-600); padding: 10px 12px; border-bottom: 1px solid var(--gray-300);
+    cursor: pointer; user-select: none; white-space: nowrap; background: #ffffff;
+  }
+  thead th.nosort { cursor: default; }
+  thead th[data-dir="asc"]::after { content: " \2191"; color: var(--black); letter-spacing: 0; }
+  thead th[data-dir="desc"]::after { content: " \2193"; color: var(--black); letter-spacing: 0; }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+  tbody tr:last-child > td { border-bottom: none; }
+  tbody tr.co { cursor: pointer; transition: background-color 0.15s; }
+  tbody tr.co:hover { background: var(--gray-100); }
+  td.rank { color: var(--gray-500); font-variant-numeric: tabular-nums; width: 40px; }
+  .name { display: flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+  .name svg { flex: none; }
+  .name a { display: inline-flex; color: var(--gray-500); }
+  .name a:hover { color: var(--blue); }
+  .shield-ok { color: #059669; }
+  .shield-warn { color: #f59e0b; }
+  .shield-bad { color: var(--red); }
+  .sub, td.dim { color: var(--gray-600); font-size: 12px; }
+  .sub { max-width: 340px; white-space: normal; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .pill b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tone-em { color: var(--emerald); }
+  .tone-sky { color: var(--sky); }
+  .tone-am { color: var(--amber); }
+  .tone-gray { color: var(--gray-600); }
+  .nosignal { color: var(--gray-500); font-size: 12px; }
+  .track { height: 6px; width: 56px; border-radius: 999px; background: #f1efee; overflow: hidden; }
+  .fill { display: block; height: 100%; border-radius: 999px; }
+  .fill.blue { background: var(--blue); }
+  .chev { color: var(--gray-500); display: inline-block; transition: transform 0.15s; }
+  tr.open .chev { transform: rotate(90deg); }
+  tr.detail > td { background: rgba(250, 249, 248, 0.6); padding: 16px 20px 18px; }
+  .detail-grid { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .detail-grid { grid-template-columns: 1fr 1fr; } }
+  .dlabel {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gray-600); margin-bottom: 8px;
+  }
+  .grade-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; margin-bottom: 8px; }
+  .grade-row .glabel { width: 176px; flex: none; padding-top: 2px; color: var(--gray-700); }
+  .lvl {
+    display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px;
+    border: 1px solid; padding: 1px 8px; font-size: 11px; font-weight: 500;
+  }
+  .lvl-strong, .lvl-yes, .lvl-true { border-color: #a7f3d0; background: #ecfdf5; color: var(--emerald); }
+  .lvl-medium { border-color: #bae6fd; background: #f0f9ff; color: var(--sky); }
+  .lvl-partial, .lvl-weak { border-color: #fde68a; background: #fffbeb; color: var(--amber); }
+  .lvl-no { border-color: #fecaca; background: #fef2f2; color: var(--red); }
+  .lvl-none, .lvl-unknown, .lvl-false { border-color: var(--gray-300); background: var(--gray-100); color: var(--gray-600); }
+  .fact { font-size: 12px; color: var(--gray-700); line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
+  .fact.concern { color: var(--amber); }
+  .fblock { margin-bottom: 14px; }
+  .fblock:last-child { margin-bottom: 0; }
+  .links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+  .links a { display: inline-flex; align-items: center; gap: 4px; color: var(--blue); text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
+  .links span { color: var(--gray-600); }
+  .empty { color: var(--gray-600); text-align: center; padding: 36px 0; font-size: 13px; }
+  a:focus-visible, th:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .chev, tbody tr.co { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Company list</div>
+  <h1 id="title">Companies</h1>
+  <div class="meta" id="meta"></div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Search companies" aria-label="Search companies">
+    <select id="segment" hidden aria-label="Filter by segment"></select>
+    <select id="verify" hidden aria-label="Filter by verification"></select>
+    <span id="count"></span>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr id="headrow"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+</main>
+<script>
+"use strict";
+const PAYLOAD = {"title": "Western companies (HQ in North America/Europe/Oceania) that a Saudi or UAE sovereign wealth fund (PIF, Sanabil, Mubadala, ADIA, ADQ, or their direct subsidiaries) invested in, signed an MOU with, or announced economic cooperation with between 2026-06-08 and 2026-07-08", "csv": "companies.csv", "generated": "2026-07-08", "headers": ["rank", "company", "website", "hq", "description", "score", "cooperation_type", "counterparty_fund", "deal_size_usd_m", "nature_of_cooperation", "exec_team", "total_revenue_usd_m", "event_date", "announcement_url", "dealMateriality", "westernCompany", "swfCooperation", "overall_tier", "confidence", "concerns", "verify_exists", "verify_website", "corrections", "sources", "segment"], "rows": [["1", "Repsol S.A.", "https://www.repsol.com", "Madrid, Spain", "Integrated energy company that sells fuels, electricity, lubricants, and renewable-energy solutions.", "100", "investment", "Masdar", "978", "Repsol agreed to sell Masdar a 49.99% stake in a 705 MW renewable-energy portfolio in Spain. The portfolio was valued at €849 million (about $978 million) and includes future hybridization potential, with closing expected by the end of 2026 subject to approvals.", "Josu Jon Imaz — CEO", "", "2026-06-11", "https://www.repsol.com/en/press-room/press-releases/2026/repsol-masdar-partner-849-million-renewables-portfolio-spain/index.cshtml", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "The dated event is accurately 2026-06-11, but the transaction was an agreement for Masdar to acquire a 49.99% stake in a Spanish renewables portfolio valued at €849m, not an investment in Repsol S.A. equity. Source: Repsol press release. | Counterparty should be stated as Abu Dhabi Future Energy Company – Masdar, a UAE renewables company jointly owned by TAQA, ADNOC and Mubadala. Source: Repsol press release.", "https://www.repsol.com/en/press-room/press-releases/2026/repsol-masdar-partner-849-million-renewables-portfolio-spain/index.cshtml | https://www.thenationalnews.com/business/energy/2026/06/11/abu-dhabis-masdar-finalises-deal-to-acquire-repsol-stake-for-978m/ | https://www.repsol.com/en/index.cshtml | https://www.repsol.com/en/footer/contact/index.cshtml | https://www.repsol.com/en/about-us/our-company/our-team/organizational-chart/josu-jon-imaz/index.cshtml", "gulf_biz_press"], ["2", "Intertek Group plc", "https://www.intertek.com", "London, United Kingdom", "Testing, inspection, and certification services provider.", "100", "investment", "Luxinva (ADIA subsidiary) and Mubadala", "14500", "Intertek announced a recommended cash acquisition by Isotope Bidco, a newly formed vehicle owned by EQT funds together with Luxinva and Mubadala. The transaction will be implemented through a court-sanctioned scheme of arrangement and gives Intertek shareholders £61.077 per share in total value.", "André Lacroix — Chief Executive Officer", "", "2026-06-18", "https://www.intertek.com/siteassets/investors/offer/rule-2.7-announcement-dated-18-june-2026.pdf", "strong", "yes", "yes", "exceptional", "high", "", "confirmed", "valid", "The dated event is accurately 2026-06-18, but the deal is more precisely a recommended cash acquisition of Intertek by Isotope Bidco/EQT consortium, with indirect equity investment by Luxinva and Mubadala, rather than a standalone direct investment by Luxinva/Mubadala in Intertek. | Ownership correction: Bidco was expected to be owned 76% by EQT Group funds/investment vehicles, 16% by Luxinva (wholly owned by ADIA), and 8% by Mubadala. Source: Intertek Rule 2.7 offer announcement.", "https://www.intertek.com/siteassets/investors/offer/rule-2.7-announcement-dated-18-june-2026.pdf | https://en.aletihad.ae/news/business/4674265/adia--mubadala-join-eqt-in--9-5-billion-takeover-of-uk-testi | https://www.intertek.com/en/ | https://linkedin.com/company/intertek | https://www.intertek.com/investors/corporate-governance/roles-and-responsibilities/ | https://www.intertek.com/about/executive-committee/", "gulf_biz_press"], ["3", "Pierre & Vacances-Center Parcs", "https://www.groupepvcp.com", "Paris, France", "European holiday resort and tourism operator with brands including Center Parcs, Pierre & Vacances, maeva and Adagio.", "100", "investment", "Mubadala Capital", "1000", "Pierre et Vacances S.A. announced that it had received a fully financed binding offer from Mubadala Capital to acquire all outstanding securities through a voluntary cash tender offer. The board unanimously welcomed the proposal, which also includes a special distribution and a possible squeeze-out/delisting if the deal proceeds.", "Franck Gervais — CEO | Georges Sampeur — Chairman of the Board", "", "2026-06-22", "https://www.groupepvcp.com/app/uploads/2026/06/pr-pvcp-220626-en.pdf", "strong", "yes", "yes", "exceptional", "high", "The transaction was a binding offer, not a closed acquisition, and remains subject to an 80% shareholder undertakings condition and regulatory approvals.", "confirmed", "valid", "The event is a fully financed binding offer from Mubadala Capital for all outstanding securities of Pierre et Vacances S.A. through a voluntary cash tender offer; it was not yet a completed investment as of the announcement and remains subject to conditions, including 80% shareholder tender undertakings by 2026-07-17. | The offer was announced 2026-06-22; the board meeting welcoming it occurred 2026-06-19. Source: PVCP press release.", "https://www.groupepvcp.com/app/uploads/2026/06/pr-pvcp-220626-en.pdf | https://linkedin.com/company/pierreetvacances | https://live.euronext.com/en/products/equities/company-news/2026-06-22-pierre-vacances-center-parcs-review-strategic-options | https://www.groupepvcp.com/en/ | https://linkedin.com/company/groupepvcp | https://www.groupepvcp.com/en/group/governance/ | https://www.groupepvcp.com/en/group/", "western_financial_press"], ["4", "Equitix", "https://equitix.com", "London, England", "Infrastructure investor and asset manager that develops and manages global infrastructure assets.", "86", "investment", "Mubadala", "200", "Mubadala said it acquired USD 200 million of Equitix’s stake in Greenlink, the subsea electricity interconnector linking Great Britain and Ireland. The announcement frames the transaction as an infrastructure investment that expands Mubadala’s presence in European energy infrastructure.", "", "", "2026-06-16", "https://www.mubadala.com/en/news/mubadala-partners-with-equitix-to-invest-in-greenlink", "strong", "yes", "yes", "strong", "high", "The cooperation is in the Greenlink asset via Equitix rather than a broad corporate financing round at Equitix level. | HQ evidence is supported by Fiber profile rather than a standalone company press page in this batch.", "confirmed", "valid", "The 2026-06-16 transaction was not an equity investment in Equitix itself. Mubadala acquired $200m of Equitix’s stake in Greenlink, a GB-Ireland electricity interconnector, and the announcement framed this as partnering with Equitix to invest in Greenlink. | Counterparty fund is Mubadala Investment Company, an Abu Dhabi sovereign investor. Source: Mubadala press release.", "https://www.mubadala.com/en/news/mubadala-partners-with-equitix-to-invest-in-greenlink | https://linkedin.com/company/equitix", "fund_announcements"], ["5", "TK Elevator", "https://www.tkelevator.com", "Düsseldorf, North Rhine-Westphalia", "Elevators, escalators, walkways, and related urban-mobility systems; also installation, modernization, and service.", "86", "joint venture", "Alat", "76", "TKE ALAT, the joint venture between TK Elevator and Alat, announced a SAR 285 million manufacturing and multi-purpose facility in Dammam. The project is designed to localize elevator and escalator production in Saudi Arabia and add product development, training, and technical-service capacity for the Kingdom and wider MENA region.", "", "", "2026-06-11", "https://www.prnewswire.com/ae/news-releases/tke-alat-to-invest-sar-285m-in-dammam-manufacturing-and-multi-purpose-facilityfirst-tk-elevator-site-to-produce-low--mid--and-high-rise-elevators-and-escalators-in-one-location-302796900.html", "strong", "yes", "yes", "strong", "high", "The underlying JV was originally formed in 2025; the June 2026 announcement is an investment/development update under that JV rather than a brand-new JV signing in the window. | Alat is a PIF company, so the counterparty is a PIF direct subsidiary rather than PIF itself.", "confirmed", "valid", "The joint venture between TK Elevator and Alat was formed in August 2025, outside the requested date window. The 2026-06-11 qualifying announcement was a SAR 285m investment/groundbreaking by the existing TKE ALAT joint venture for a Dammam manufacturing and multi-purpose facility. | Counterparty Alat is described as a Public Investment Fund (PIF) company, and TKE ALAT is described as a €160m JV between TKE and Alat. Source: PRNewswire/TKE ALAT release.", "https://www.tkelevator.com/global-en/newsroom/press-releases/tke-alat-to-invest-sar-285m-in-dammam-manufacturing-and-multi-purpose-facility-%E2%80%93-first-tk-elevator-site-to-produce-low-mid-and-high-rise-elevators-and-escalators-in-one-location-199232.html | https://www.prnewswire.com/ae/news-releases/tke-alat-to-invest-sar-285m-in-dammam-manufacturing-and-multi-purpose-facilityfirst-tk-elevator-site-to-produce-low--mid--and-high-rise-elevators-and-escalators-in-one-location-302796900.html | https://linkedin.com/company/tke-global | https://www.tkelevator.com", "wire_services"], ["6", "Blue Owl Capital", "https://www.blueowl.com", "New York, NY", "Alternative asset manager offering direct lending, GP stakes, and real assets investment products.", "53", "MOU", "PIF", "", "PIF agreed in a non-binding MoU to act as a strategic anchor investor for Blue Owl’s Middle East regional expansion. The deal is an announced cooperation arrangement rather than a closed investment, and the public signal is stronger on the existence of the MoU than on economic terms.", "Doug Ostrover — Co-Chief Executive Officer | Marc Lipschultz — Co-Chief Executive Officer", "", "2026-06-29", "https://www.facebook.com/USAinUAE/posts/congratulations-to-blue-owl-capital-on-the-opening-of-its-new-middle-east-region/1438427558328233/", "medium", "yes", "unknown", "moderate", "medium", "The qualifying PIF-Blue Owl cooperation is surfaced via a public Facebook post rather than a formal company press release in the evidence I found. | Non-binding MOU, so it is materially weaker than a closed investment.", "confirmed", "valid", "No public evidence was found for the claimed 2026-06-29 PIF MOU with Blue Owl Capital. Searches surfaced Blue Owl’s 2026-06-09 Abu Dhabi office opening and a 2025 partnership with Qatar Investment Authority, but not a qualifying PIF/Saudi-UAE listed-fund MOU in the requested window. | If the intended claimed fact was the Abu Dhabi office opening, the counterparty was ADGM/Abu Dhabi market context rather than PIF, and it is not a sovereign wealth fund investment/MOU/JV/cooperation event under the stated criteria. Sources: Blue Owl news/contact pages and search results.", "https://www.facebook.com/USAinUAE/posts/congratulations-to-blue-owl-capital-on-the-opening-of-its-new-middle-east-region/1438427558328233/ | https://linkedin.com/company/blue-owl-capital | https://www.blueowl.com", "wire_services"]], "tableCols": ["cooperation_type", "counterparty_fund", "deal_size_usd_m", "event_date"]};
+(function () {
+  const $ = (id) => document.getElementById(id);
+  if (!PAYLOAD || !Array.isArray(PAYLOAD.headers)) {
+    $("meta").textContent = "No data embedded. Generate this file with: python3 orchestrator/render_viewer.py companies.csv companies.html";
+    return;
+  }
+  const headers = PAYLOAD.headers;
+  const rows = PAYLOAD.rows || [];
+  const idx = new Map(headers.map((h, i) => [h, i]));
+  const has = (c) => idx.has(c);
+  const val = (row, c) => {
+    const i = idx.get(c);
+    return i === undefined || row[i] == null ? "" : String(row[i]).trim();
+  };
+
+  document.title = PAYLOAD.title || "Companies";
+  $("title").textContent = PAYLOAD.title || "Companies";
+  $("meta").textContent = rows.length + " companies · " + (PAYLOAD.csv || "companies.csv") +
+    (PAYLOAD.generated ? " · generated " + PAYLOAD.generated : "");
+
+  function safeUrl(u) {
+    if (!u) return null;
+    if (!/^[a-z]+:\/\//i.test(u) && /^[\w-]+(\.[\w-]+)+([/?#]|$)/.test(u)) u = "https://" + u;
+    try {
+      const p = new URL(u).protocol;
+      return p === "https:" || p === "http:" ? u : null;
+    } catch { return null; }
+  }
+  function host(u) {
+    try { return new URL(safeUrl(u) || u).hostname.replace(/^www\./, ""); } catch { return u; }
+  }
+  const nfmt = new Intl.NumberFormat("en-US");
+  function fmtVal(v) {
+    if (!/^-?\d{4,}(\.\d+)?$/.test(v) || !Number.isFinite(Number(v))) return v;
+    const n = Number(v);
+    if (/^\d{4}$/.test(v) && n >= 1800 && n <= 2199) return v; // a year, not a quantity
+    return nfmt.format(n);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function svg(size, cls, paths) {
+    const NS = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(NS, "svg");
+    s.setAttribute("width", size); s.setAttribute("height", size);
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("fill", "none");
+    s.setAttribute("stroke", "currentColor"); s.setAttribute("stroke-width", "2");
+    s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+    if (cls) s.setAttribute("class", cls);
+    for (const d of paths) {
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", d);
+      s.appendChild(p);
+    }
+    return s;
+  }
+  const SHIELD = "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z";
+  const EXTERNAL = ["M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"];
+  function link(url, label) {
+    const safe = safeUrl(url);
+    if (!safe) return el("span", null, label || url);
+    const a = document.createElement("a");
+    a.href = safe; a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.appendChild(document.createTextNode(label || url));
+    a.appendChild(svg(11, null, EXTERNAL));
+    return a;
+  }
+
+  // Fact-check shield shown next to the name.
+  function shieldFor(row) {
+    const exists = val(row, "verify_exists"), site = val(row, "verify_website");
+    if (!exists || exists === "unchecked") return null;
+    const label = "Fact-check: " + exists.replace(/_/g, " ") + (site && site !== "unchecked" ? ", website " + site : "");
+    let cls = "shield-ok", extra = ["m9 12 2 2 4-4"];
+    if (exists === "not_found" || site === "wrong") { cls = "shield-bad"; extra = ["m14.5 9.5-5 5", "m9.5 9.5 5 5"]; }
+    else if (exists === "uncertain" || site === "unverifiable") { cls = "shield-warn"; extra = ["M12 8v4", "M12 16h.01"]; }
+    const s = svg(14, cls, [SHIELD].concat(extra));
+    const wrap = el("span");
+    wrap.title = label;
+    wrap.appendChild(s);
+    return wrap;
+  }
+
+  function companyCell(row) {
+    const td = el("td");
+    const nameLine = el("div", "name");
+    nameLine.appendChild(document.createTextNode(val(row, "company")));
+    const shield = shieldFor(row);
+    if (shield) nameLine.appendChild(shield);
+    const site = safeUrl(val(row, "website"));
+    if (site) {
+      const a = document.createElement("a");
+      a.href = site; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.setAttribute("aria-label", "Website for " + val(row, "company"));
+      a.appendChild(svg(13, null, EXTERNAL));
+      nameLine.appendChild(a);
+    }
+    td.appendChild(nameLine);
+    const desc = val(row, "description");
+    if (desc) td.appendChild(el("div", "sub", desc));
+    return td;
+  }
+  function scorePill(raw, tones, emptyText) {
+    const td = el("td");
+    if (raw === "") {
+      td.appendChild(el("span", "nosignal", emptyText));
+      return td;
+    }
+    const n = Number(raw);
+    if (Number.isNaN(n)) { td.textContent = raw; return td; }
+    let tone = "tone-gray";
+    for (const [min, cls] of tones) if (n >= min) { tone = cls; break; }
+    const pill = el("span", "pill");
+    const b = el("b", tone, raw);
+    const track = el("span", "track");
+    const fill = el("span", "fill blue");
+    fill.style.width = Math.max(4, Math.min(100, n)) + "%";
+    track.appendChild(fill);
+    pill.appendChild(b); pill.appendChild(track);
+    td.appendChild(pill);
+    return td;
+  }
+  function textCell(col, cls) {
+    return (row) => el("td", cls, val(row, col));
+  }
+  // A plan column in the main table: URLs become links, big numbers get separators.
+  function dataCell(col) {
+    return (row) => {
+      const v = val(row, col);
+      const td = el("td", /^-?\d+(\.\d+)?$/.test(v) ? "num" : "dim");
+      if (!v) return td;
+      if (/^https?:\/\//i.test(v)) td.appendChild(link(v, host(v)));
+      else td.textContent = fmtVal(v);
+      return td;
+    };
+  }
+  const label = (col) => {
+    const words = col.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  };
+
+  // Main columns: identity + the renderer-chosen table columns; everything else in the detail row.
+  const tableCols = (PAYLOAD.tableCols || []).filter(has);
+  const columns = [];
+  if (has("company")) {
+    if (has("rank")) columns.push({ label: "#", sortCol: "rank", cell: (r) => el("td", "rank", val(r, "rank")) });
+    columns.push({ label: "Company", sortCol: "company", cell: companyCell });
+    if (has("hq")) columns.push({ label: "HQ", sortCol: "hq", cell: textCell("hq", "dim") });
+    for (const c of tableCols) columns.push({ label: label(c), sortCol: c, cell: dataCell(c) });
+    if (has("score")) columns.push({ label: "Match", sortCol: "score", cell: (r) => scorePill(val(r, "score"), [[80, "tone-em"], [60, "tone-sky"]], "-") });
+    if (has("segment")) columns.push({ label: "Segment", sortCol: "segment", cell: textCell("segment", "dim") });
+    columns.push({ label: "", sortCol: null, cell: () => { const td = el("td"); td.appendChild(el("span", "chev", "›")); return td; } });
+  } else {
+    for (const h of headers) columns.push({ label: h, sortCol: h, cell: textCell(h) });
+  }
+  const inMainTable = new Set(["rank", "company", "website", "hq", "description", "score", "segment", "verify_exists", "verify_website", ...tableCols]);
+  const detailCols = has("company") ? headers.filter((h) => !inMainTable.has(h)) : [];
+  const LEVELS = new Set(["strong", "medium", "partial", "weak", "none", "unknown", "yes", "no", "true", "false"]);
+
+  function gradeRow(name, value, lvlCls) {
+    const row = el("div", "grade-row");
+    row.appendChild(el("span", "glabel", name));
+    row.appendChild(el("span", "lvl " + lvlCls, value));
+    return row;
+  }
+  function factBlock(name, node) {
+    const b = el("div", "fblock");
+    b.appendChild(el("div", "dlabel", name));
+    b.appendChild(node);
+    return b;
+  }
+  function detailRow(row) {
+    const tr = el("tr", "detail");
+    const td = el("td");
+    td.colSpan = columns.length;
+    const grid = el("div", "detail-grid");
+    const grades = el("div"), facts = el("div");
+
+    const FACTS = new Set(["overall_tier", "confidence", "concerns", "corrections", "sources"]);
+    const gradeWrap = el("div");
+    const leftovers = [];
+    for (const col of detailCols) {
+      const v = val(row, col);
+      if (!v || FACTS.has(col)) continue;
+      if (LEVELS.has(v.toLowerCase())) gradeWrap.appendChild(gradeRow(label(col), v, "lvl-" + v.toLowerCase()));
+      else leftovers.push(col);
+    }
+    if (gradeWrap.children.length) {
+      grades.appendChild(el("div", "dlabel", "Criteria"));
+      grades.appendChild(gradeWrap);
+    }
+
+    const tier = val(row, "overall_tier"), conf = val(row, "confidence");
+    if (tier || conf) {
+      const text = tier && conf ? tier + "; " + conf + " confidence" : tier || conf + " confidence";
+      facts.appendChild(factBlock("Overall fit", el("p", "fact", text)));
+    }
+    const concerns = val(row, "concerns");
+    if (concerns) facts.appendChild(factBlock("Concerns", el("p", "fact concern", concerns)));
+    const exists = val(row, "verify_exists"), site = val(row, "verify_website");
+    if (exists && exists !== "unchecked") {
+      const text = "Company " + exists.replace(/_/g, " ") + (site && site !== "unchecked" ? "; website " + site + "." : ".");
+      facts.appendChild(factBlock("Fact-check", el("p", "fact", text)));
+    }
+    const corrections = val(row, "corrections");
+    if (corrections) facts.appendChild(factBlock("Corrections from fact-check", el("p", "fact concern", corrections.split(" | ").join("; "))));
+    for (const col of leftovers) {
+      const v = val(row, col);
+      if (/^https?:\/\//i.test(v)) {
+        const links = el("div", "links");
+        links.appendChild(link(v, host(v)));
+        facts.appendChild(factBlock(label(col), links));
+      } else {
+        facts.appendChild(factBlock(label(col), el("p", "fact", fmtVal(v))));
+      }
+    }
+    const sources = val(row, "sources");
+    if (sources) {
+      const links = el("div", "links");
+      for (const u of sources.split(" | ")) if (u.trim()) links.appendChild(link(u.trim(), host(u.trim())));
+      facts.appendChild(factBlock("Sources", links));
+    }
+    const site2 = val(row, "website");
+    if (site2 && !safeUrl(site2)) facts.appendChild(factBlock("Website", el("p", "fact", site2)));
+
+    if (!grades.children.length && !facts.children.length) {
+      facts.appendChild(el("p", "fact", "No additional fields."));
+    }
+    grid.appendChild(grades);
+    grid.appendChild(facts);
+    td.appendChild(grid);
+    tr.appendChild(td);
+    return tr;
+  }
+
+  // Filters.
+  const search = $("search");
+  function initSelect(id, col, allLabel, order) {
+    const sel = $(id);
+    if (!has(col)) return sel;
+    const values = [...new Set(rows.map((r) => val(r, col)).filter(Boolean))];
+    if (values.length < 2) return sel;
+    values.sort(order ? (a, b) => (order.indexOf(a) + 99 * +!order.includes(a)) - (order.indexOf(b) + 99 * +!order.includes(b)) : undefined);
+    sel.hidden = false;
+    sel.appendChild(new Option(allLabel, ""));
+    for (const v of values) sel.appendChild(new Option(v, v));
+    return sel;
+  }
+  const segmentSel = initSelect("segment", "segment", "All segments");
+  const verifySel = initSelect("verify", "verify_exists", "All verification", ["confirmed", "likely", "uncertain", "unchecked", "not_found"]);
+
+  let sortCol = null, sortDir = 1;
+  function compare(a, b) {
+    const av = val(a, sortCol), bv = val(b, sortCol);
+    if (!av && !bv) return 0;
+    if (!av) return 1;
+    if (!bv) return -1;
+    const an = Number(av), bn = Number(bv);
+    const cmp = !Number.isNaN(an) && !Number.isNaN(bn) ? an - bn : av.localeCompare(bv, undefined, { sensitivity: "base" });
+    return cmp * sortDir;
+  }
+  function visibleRows() {
+    const q = search.value.trim().toLowerCase();
+    let out = rows.filter((r) =>
+      (!q || r.some((c) => c != null && String(c).toLowerCase().includes(q))) &&
+      (!segmentSel.value || val(r, "segment") === segmentSel.value) &&
+      (!verifySel.value || val(r, "verify_exists") === verifySel.value));
+    if (sortCol) out = [...out].sort(compare);
+    return out;
+  }
+
+  const headrow = $("headrow"), body = $("body");
+  for (const col of columns) {
+    const th = el("th", col.sortCol ? "" : "nosort", col.label);
+    if (col.sortCol) th.addEventListener("click", () => {
+      sortDir = sortCol === col.sortCol ? -sortDir : 1;
+      sortCol = col.sortCol;
+      render();
+    });
+    th.dataset.col = col.sortCol || "";
+    headrow.appendChild(th);
+  }
+
+  function render() {
+    for (const th of headrow.children) {
+      if (th.dataset.col && th.dataset.col === sortCol) th.dataset.dir = sortDir === 1 ? "asc" : "desc";
+      else delete th.dataset.dir;
+    }
+    body.textContent = "";
+    const shown = visibleRows();
+    $("count").textContent = shown.length + " of " + rows.length;
+    if (!shown.length) {
+      const td = el("td", "empty", rows.length ? "No companies match." : "No companies in the CSV.");
+      td.colSpan = columns.length;
+      const tr = el("tr");
+      tr.appendChild(td);
+      body.appendChild(tr);
+      return;
+    }
+    for (const row of shown) {
+      const tr = el("tr", "co");
+      for (const col of columns) tr.appendChild(col.cell(row));
+      if (detailCols.length) tr.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        if (tr.classList.toggle("open")) tr.after(detailRow(row));
+        else if (tr.nextElementSibling?.classList.contains("detail")) tr.nextElementSibling.remove();
+      });
+      body.appendChild(tr);
+    }
+  }
+
+  search.addEventListener("input", render);
+  segmentSel.addEventListener("change", render);
+  verifySel.addEventListener("change", render);
+  render();
+})();
+</script>
+</body>
+</html>

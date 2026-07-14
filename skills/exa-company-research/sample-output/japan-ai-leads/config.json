@@ -1,0 +1,34 @@
+{
+  "objective": "Japanese companies with a recent, concrete AI initiative that involves or would clearly benefit from a web search API (agents, RAG, research assistants, market/news intelligence)",
+  "target_count": 10,
+  "hard_criteria": [
+    {"key": "japaneseCompany",    "text": "Japanese company (HQ in Japan)."},
+    {"key": "concreteInitiative", "text": "Has a specific, dated (within the last 18 months, i.e. since January 2025), publicly documented AI initiative — a named product, deployment, business unit, or funded program; not a vague 'exploring AI' statement."}
+  ],
+  "soft_criteria": [
+    {"key": "searchApiRelevance", "scale": "capability", "text": "The initiative plausibly needs live web data or search: agents, RAG over external content, research/intel tools, news monitoring. Grade STRICTLY — 'strong' only if the initiative itself retrieves or reasons over web-scale external content; do not stretch low-relevance initiatives."},
+    {"key": "buildVsBuy",         "scale": "strength",   "text": "Signals they build in-house and buy APIs: engineering hiring, tech blog, existing API vendor usage."},
+    {"key": "initiativeScale",    "scale": "strength",   "text": "Executive sponsorship, budget, or company-level strategy attached to the initiative."}
+  ],
+  "columns": [
+    {"key": "initiative_name",    "type": "string", "desc": "the named initiative/product", "source": "web"},
+    {"key": "initiative_date",    "type": "string", "desc": "when it was announced/launched (YYYY-MM)", "source": "web"},
+    {"key": "why_search_api",     "type": "string", "desc": "one sentence: the concrete way a web search API fits — no stretching", "source": "web"},
+    {"key": "initiative_summary", "type": "string", "desc": "2-3 sentences on what the initiative is", "source": "web"},
+    {"key": "employee_count",     "type": "number", "desc": "approximate headcount", "source": "fiber_ai"}
+  ],
+  "data_sources": ["fiber_ai"],
+  "verify_columns": ["initiative_name", "initiative_date"],
+  "table_cols": ["initiative_name", "initiative_date", "employee_count"],
+  "existing_list": {"file": "existing.txt"},
+  "geography": {"preferred_regions": []},
+  "segments": [
+    {"label": "jp_tech_press", "focus": "Japanese tech/business press on enterprise AI initiatives — Nikkei, ITmedia, ASCII, PR Times releases; search in Japanese (AI エージェント, 生成AI 導入, RAG)."},
+    {"label": "ai_products",   "focus": "Japanese companies that shipped AI-powered products with search/agent/RAG features — product pages, launch posts, API docs."},
+    {"label": "partnerships",  "focus": "Japanese companies in announced partnerships with LLM vendors (OpenAI, Anthropic, Google) or cloud AI programs."}
+  ],
+  "max_per_call": 12,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "concurrency": 3
+}

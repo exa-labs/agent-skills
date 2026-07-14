@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+# per-run working files (keep sample-output/ checked in)
+/work/
+*.run.json
+research_state.json

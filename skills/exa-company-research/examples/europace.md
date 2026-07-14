@@ -1,0 +1,1 @@
+Find me competitors of europace.de. For each one, find me the exec team, their current funding round, other information I should know as a potential investor into europace.de

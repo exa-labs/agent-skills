@@ -1,0 +1,41 @@
+{
+  "role": "Solutions Architect, ISV (a customer-facing, pre-sales cloud solutions-architecture role)",
+  "locations": ["San Francisco Bay Area", "New York City", "Austin TX", "Dallas TX"],
+  "exclude_employer": "Amazon / AWS / Amazon Web Services",
+  "exclude_people": [],
+  "_comment_exclude_people": "Optional: an existing pipeline/ATS list to skip. Each entry is a name (\"Jane Doe\") or a LinkedIn URL, or {\"name\": ..., \"linkedinUrl\": ...}. Also settable via --exclude-file (one per line). Fed to each run's input.exclusion and filtered from results.",
+  "rubric_must_haves": [
+    "4+ years in a technical domain: software development, cloud computing, systems engineering, infrastructure, security, networking, or data & analytics.",
+    "2+ years of design, implementation, or consulting experience with applications and infrastructure.",
+    "Customer-facing / pre-sales ability: leading architecture discussions, customer enablement, relationships with senior technical stakeholders.",
+    "Strong cloud-computing expertise (any major cloud) and application architecture at scale."
+  ],
+  "rubric_signals": [
+    "Cloud migration / legacy modernization / cloud transformation experience.",
+    "A pre-sales Solutions Architect / Sales Engineer / Customer Engineer title.",
+    "Experience at or selling to ISVs (independent software vendors / SaaS companies).",
+    "Thought leadership: blogs, whitepapers, conference talks, workshops.",
+    "Multi-cloud breadth; software-development background."
+  ],
+  "dimensions": [
+    {"key": "techDomainExperience", "scale": "capability"},
+    {"key": "designConsultingExperience", "scale": "capability"},
+    {"key": "customerFacingPresales", "scale": "capability"},
+    {"key": "cloudArchitecture", "scale": "capability", "extra": ["clouds"]},
+    {"key": "migrationModernization", "scale": "strength"},
+    {"key": "thoughtLeadership", "scale": "strength"}
+  ],
+  "segments": [
+    {"label": "azure_presales", "focus": "Microsoft Azure pre-sales talent — Azure Cloud Solution Architects, Cloud Solutions Architects, Technical Specialists, Sales Engineers, or Customer Engineers at Microsoft, Microsoft partners (CDW, SHI, Insight, WWT), and Azure-focused ISVs/consultancies."},
+    {"label": "googlecloud_presales", "focus": "Google Cloud (GCP) pre-sales talent — Customer Engineers, Cloud Solutions Architects, Sales Engineers, or Solutions Consultants at Google Cloud, Google Cloud partners, and GCP-focused ISVs/consultancies."},
+    {"label": "isv_software_se", "focus": "Solutions Architects, Solutions Engineers, and Sales Engineers at major data/SaaS/enterprise-software ISVs such as Snowflake, Databricks, MongoDB, Confluent, HashiCorp, Datadog, Elastic, GitLab, Salesforce, ServiceNow, Okta, Splunk."},
+    {"label": "si_consultancy", "focus": "Cloud architects and pre-sales / delivery consultants at systems integrators and consultancies such as Accenture, Deloitte, Slalom, Thoughtworks, Capgemini, Cognizant, Infosys, EPAM, with cloud migration/modernization and customer-facing architecture roles."},
+    {"label": "security_network_isv", "focus": "Solutions Engineers, Sales Engineers, and Solutions Architects at security and networking ISVs such as Palo Alto Networks, CrowdStrike, Zscaler, Fortinet, Cisco, Cloudflare, Okta, and Wiz, with cloud architecture depth."},
+    {"label": "cloud_resellers", "focus": "Pre-sales Solutions Architects, Cloud Architects, and Sales Engineers at cloud resellers, MSPs, and partners such as CDW, SHI, Insight, World Wide Technology (WWT), Presidio, Rackspace, NTT Data, and SADA."}
+  ],
+  "max_per_call": 12,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "data_sources": ["fiber_ai"],
+  "concurrency": 2
+}

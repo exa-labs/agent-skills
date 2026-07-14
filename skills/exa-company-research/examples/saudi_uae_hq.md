@@ -1,0 +1,1 @@
+Find me every Western company that has opened a regional headquarter in Saudi Arabia or the UAE in the last month

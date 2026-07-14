@@ -1,0 +1,1 @@
+Find me a list of every Western company that a Saudi or UAE sovereign wealth fund has invested in, signed an MOU with, or otherwise done economic cooperation with in the last month. For each one, list out the current total revenue of the company, the exec team, and the nature of the cooperation.

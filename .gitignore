@@ -1,2 +1,16 @@
 dist/
 *.zip
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# autoresearch harness per-run artifacts and skill working copies (regenerable)
+autoresearch/runs/
+autoresearch/workspace/
+
+# skill per-run working files
+skills/*/work/
+*.run.json
+research_state.json

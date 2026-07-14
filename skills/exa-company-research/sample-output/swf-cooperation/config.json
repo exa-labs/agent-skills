@@ -1,0 +1,36 @@
+{
+  "objective": "Western companies (HQ in North America/Europe/Oceania) that a Saudi or UAE sovereign wealth fund (PIF, Sanabil, Mubadala, ADIA, ADQ, or their direct subsidiaries) invested in, signed an MOU with, or announced economic cooperation with between 2026-06-08 and 2026-07-08",
+  "mode": "exhaustive",
+  "time_window": "between 2026-06-08 and 2026-07-08",
+  "hard_criteria": [
+    { "key": "westernCompany", "text": "Global HQ in North America, Europe, or Oceania." },
+    { "key": "swfCooperation", "text": "A publicly announced investment, MOU, joint venture, or economic-cooperation agreement with a Saudi or UAE sovereign wealth fund (PIF, Sanabil, Mubadala, ADIA, ADQ, or a direct subsidiary), dated between 2026-06-08 and 2026-07-08 — an actual dated announcement, not rumor or 'in talks'." }
+  ],
+  "soft_criteria": [
+    { "key": "dealMateriality", "scale": "strength", "text": "Size/firmness of the cooperation: a closed investment with disclosed amount > JV > signed MOU > vague cooperation statement." }
+  ],
+  "columns": [
+    { "key": "cooperation_type", "type": "string", "desc": "'investment' / 'MOU' / 'joint venture' / 'other cooperation' — do NOT inflate an MOU into an investment", "source": "web" },
+    { "key": "counterparty_fund", "type": "string", "desc": "which fund: PIF, Sanabil, Mubadala, ADIA, ADQ, or subsidiary name", "source": "web" },
+    { "key": "deal_size_usd_m", "type": "number", "desc": "disclosed amount in millions USD; null if undisclosed", "source": "web" },
+    { "key": "nature_of_cooperation", "type": "string", "desc": "2-3 sentences: what was actually agreed", "source": "web" },
+    { "key": "exec_team", "type": "string[]", "desc": "CEO and key execs, 'Name — role'", "source": "fiber_ai" },
+    { "key": "total_revenue_usd_m", "type": "number", "desc": "company's current annual revenue in millions USD; null unless publicly reported — private-company revenue is usually unverifiable, never guess", "source": "fiber_ai" },
+    { "key": "event_date", "type": "string", "desc": "announcement date, YYYY-MM-DD", "source": "web" },
+    { "key": "announcement_url", "type": "string", "desc": "URL of the dated announcement", "source": "web" }
+  ],
+  "data_sources": ["fiber_ai"],
+  "verify_columns": ["cooperation_type", "event_date", "counterparty_fund"],
+  "table_cols": ["cooperation_type", "counterparty_fund", "deal_size_usd_m", "event_date"],
+  "geography": { "preferred_regions": [] },
+  "segments": [
+    { "label": "fund_announcements", "focus": "Official announcements and press pages of PIF, Sanabil, Mubadala, ADIA, and ADQ in the window, plus their portfolio-news coverage." },
+    { "label": "gulf_biz_press", "focus": "Gulf business press in the window — Zawya, Arabian Business, Arab News, The National — SWF investment and MOU announcements involving Western companies." },
+    { "label": "western_financial_press", "focus": "Reuters, Bloomberg, FT, WSJ coverage in the window of PIF/Mubadala/ADIA/ADQ/Sanabil deals with North American, European, or Oceanian companies." },
+    { "label": "wire_services", "focus": "PR Newswire, Business Wire, GlobeNewswire releases in the window announcing investments, MOUs, or partnerships with Saudi or UAE sovereign wealth funds." }
+  ],
+  "max_per_call": 12,
+  "discovery_effort": "medium",
+  "verify_effort": "high",
+  "concurrency": 2
+}
