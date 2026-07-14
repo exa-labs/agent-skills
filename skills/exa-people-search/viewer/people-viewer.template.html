@@ -45,9 +45,15 @@
   }
   .controls input[type="search"] { flex: 1 1 200px; max-width: 320px; }
   .controls input[type="search"]::placeholder { color: var(--gray-500); }
-  .controls input:focus, .controls select:focus {
+  .controls input:focus, .controls select:focus, .controls button:focus {
     outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0, 64, 240, 0.1);
   }
+  .controls button {
+    padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px;
+    background: #ffffff; color: var(--black); font: inherit; font-size: 13px;
+    cursor: pointer; white-space: nowrap;
+  }
+  .controls button:hover { border-color: var(--blue); color: var(--blue); }
   #count {
     margin-left: auto; padding: 3px 10px; border-radius: 999px;
     border: 1px solid rgba(0, 64, 240, 0.3); background: rgba(0, 64, 240, 0.06);
@@ -131,8 +137,8 @@
   <div class="meta" id="meta"></div>
   <div class="controls">
     <input id="search" type="search" placeholder="Search people" aria-label="Search people">
-    <select id="segment" hidden aria-label="Filter by segment"></select>
     <select id="verify" hidden aria-label="Filter by verification"></select>
+    <button id="download" type="button">Download CSV</button>
     <span id="count"></span>
   </div>
   <div class="card">
@@ -276,12 +282,11 @@ const PAYLOAD = /*__PAYLOAD__*/ null;
     columns.push({ label: "Person", sortCol: "name", cell: personCell });
     if (has("location")) columns.push({ label: "Location", sortCol: "location", cell: textCell("location", "dim") });
     if (has("score")) columns.push({ label: "Match", sortCol: "score", cell: (r) => scorePill(val(r, "score"), "blue", [[80, "tone-em"], [60, "tone-sky"]], "-") });
-    if (has("segment")) columns.push({ label: "Segment", sortCol: "segment", cell: textCell("segment", "dim") });
     columns.push({ label: "", sortCol: null, cell: () => { const td = el("td"); td.appendChild(el("span", "chev", "›")); return td; } });
   } else {
     for (const h of headers) columns.push({ label: h, sortCol: h, cell: textCell(h) });
   }
-  const inMainTable = new Set(["rank", "name", "currentRole", "currentAffiliation", "location", "score", "segment", "linkedinUrl", "profileUrl", "verify_exists", "verify_match"]);
+  const inMainTable = new Set(["rank", "name", "currentRole", "currentAffiliation", "location", "score", "linkedinUrl", "profileUrl", "verify_exists", "verify_match"]);
   const detailCols = has("name") ? headers.filter((h) => !inMainTable.has(h)) : [];
   const LEVELS = new Set(["strong", "medium", "partial", "weak", "none", "unknown"]);
   const label = (col) => {
@@ -371,7 +376,6 @@ const PAYLOAD = /*__PAYLOAD__*/ null;
     for (const v of values) sel.appendChild(new Option(v, v));
     return sel;
   }
-  const segmentSel = initSelect("segment", "segment", "All segments");
   const verifySel = initSelect("verify", "verify_exists", "All verification", ["confirmed", "likely", "uncertain", "unchecked", "not_found"]);
 
   let sortCol = null, sortDir = 1;
@@ -388,7 +392,6 @@ const PAYLOAD = /*__PAYLOAD__*/ null;
     const q = search.value.trim().toLowerCase();
     let out = rows.filter((r) =>
       (!q || r.some((c) => c != null && String(c).toLowerCase().includes(q))) &&
-      (!segmentSel.value || val(r, "segment") === segmentSel.value) &&
       (!verifySel.value || val(r, "verify_exists") === verifySel.value));
     if (sortCol) out = [...out].sort(compare);
     return out;
@@ -435,8 +438,31 @@ const PAYLOAD = /*__PAYLOAD__*/ null;
   }
 
   search.addEventListener("input", render);
-  segmentSel.addEventListener("change", render);
   verifySel.addEventListener("change", render);
+
+  // Download the full embedded dataset as a CSV, re-serialized from the payload
+  // (RFC 4180 quoting) so the button works even when this HTML travels without people.csv.
+  function toCsv() {
+    const esc = (v) => {
+      const s = v == null ? "" : String(v);
+      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const lines = [headers.map(esc).join(",")];
+    for (const r of rows) lines.push(headers.map((_, i) => esc(r[i])).join(","));
+    return lines.join("\r\n");
+  }
+  $("download").addEventListener("click", () => {
+    const blob = new Blob(["﻿" + toCsv()], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = el("a");
+    a.href = url;
+    a.download = PAYLOAD.csv || "people.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
   render();
 })();
 </script>

@@ -488,7 +488,7 @@ def write_outputs(cfg, final):
     contacts = [k for k, _ in contact_fields(cfg)]
     cols = ["rank", "name", "linkedinUrl", "profileUrl", "currentRole", "currentAffiliation",
             "location", "score", "overall_tier", "confidence"] \
-        + dims + contacts + ["concerns", "verify_exists", "verify_match", "sources", "segment"]
+        + dims + contacts + ["concerns", "verify_exists", "verify_match", "sources"]
 
     def row(i, c):
         of = c.get("overallFit") or {}
@@ -498,7 +498,7 @@ def write_outputs(cfg, final):
             + [c.get(k) for k in contacts] \
             + [" | ".join((of.get("concerns") or [])[:2]),
                c.get("_exists", ""), c.get("_match", ""),
-               " | ".join(c.get("_sources") or []), c.get("_segment")]
+               " | ".join(c.get("_sources") or [])]
 
     with open("people.csv", "w", newline="") as fh:
         w = csv.writer(fh); w.writerow(cols)
