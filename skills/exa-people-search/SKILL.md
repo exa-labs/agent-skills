@@ -223,6 +223,13 @@ browser. Do not re-type, re-rank, or "clean up" the results; the CSV is the arti
 fails partway, fix the config or flag and re-run; do not finish the pipeline by hand from
 partial output.
 
+**When the ask was for a large list, couch the result as not exhaustive.** This pipeline ranks
+the verified matches it could find, not every person who exists — so for any sizeable or
+open-ended ask (a big `target`, "as many as you can", a broad set), say plainly that the list is
+a strong verified sample, not a complete roster, and that `--more` can extend it. Keep
+it to a sentence; don't caveat a small, tightly-scoped ask where comprehensiveness isn't in
+question.
+
 **Steps 2-6 below describe the pipeline the orchestrator executes.** Read them to understand
 what the config controls and what the output means; follow them manually only in the fallback
 cases from the intro (no shell/Python, single-run debugging, or a deliberately tiny search).
