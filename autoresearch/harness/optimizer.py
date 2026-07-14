@@ -98,6 +98,7 @@ def propose(config, dossier, k):
                     skill_md=dossier["skill_md"])
     res = run_claude(prompt, model=config.model("outer"), cwd=config.pipeline_dir,
                      timeout_s=config.limit("outer_timeout_s"),
+                     env_extra=config.actor_env("outer"),
                      disallowed_tools=["Bash", "Write", "Edit", "WebFetch", "WebSearch"])
     if not res.ok:
         raise RuntimeError(f"outer propose failed: {res.error}")
@@ -114,6 +115,7 @@ def apply_edit(config, ws, proposal, branch):
                     edit_instructions=proposal.get("edit_instructions", ""))
     res = run_claude(prompt, model=config.model("outer"), cwd=ws.skill_dir,
                      timeout_s=config.limit("outer_timeout_s"),
+                     env_extra=config.actor_env("outer"),
                      allowed_tools=["Read", "Edit", "Write", "Grep", "Glob"],
                      disallowed_tools=["Bash", "WebFetch", "WebSearch"])
     if not res.ok:

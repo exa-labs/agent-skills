@@ -9,11 +9,35 @@
   },
 
   "models": {
-    "user": "claude-haiku-4-5-20251001",
+    "_comment": "Outer stays on a strong Anthropic model via the regular account. The other four run open-weights models over OpenRouter (see actor_providers). Change these ids to any from openrouter.ai/models; inner/validator carry the agentic + fact-check load, so they get the stronger model.",
+    "user": "z-ai/glm-5.2",
     "inner": "claude-sonnet-5",
-    "validator": "claude-sonnet-5",
+    "validator": "z-ai/glm-5.2",
     "outer": "claude-fable-5",
-    "importer": "claude-sonnet-5"
+    "importer": "claude-opus-4-8"
+  },
+
+  "providers": {
+    "_comment": "Routing presets. base_url must speak the Anthropic Messages API (Claude Code only talks that protocol). Secrets stay in the environment: ${VAR} is expanded at runtime from that env var, never stored here. 'anthropic' has no base_url, so actors on it use this machine's regular Claude account.",
+    "anthropic": {},
+    "fireconnect": {
+      "base_url": "https://router.fireworks.ai",
+      "custom_headers": "X-FireRouter-Fireworks-Key: ${FIREWORKS_API_KEY}"
+    },
+    "openrouter": {
+      "_comment": "OpenRouter's 'Anthropic Skin' — base_url is /api (NOT /api/v1, which is the OpenAI path). Claude Code speaks its native protocol directly; no proxy. Key starts with sk-or-. Model ids are OpenRouter ids from openrouter.ai/models, set per-actor in models.* .",
+      "base_url": "https://openrouter.ai/api",
+      "api_key_env": "OPENROUTER_API_KEY"
+    }
+  },
+
+  "actor_providers": {
+    "_comment": "Which provider each actor runs on. Default is 'anthropic'. Keep the strategic Outer (edit proposer) on a strong Anthropic model via your regular account; route the cheap, high-volume actors (user/inner/validator/importer) at open-weights providers to cut cost. When you move an actor to a preset, set models.<actor> to a model that preset serves.",
+    "user": "openrouter",
+    "inner": "anthropic",
+    "validator": "openrouter",
+    "outer": "anthropic",
+    "importer": "anthropic"
   },
 
   "limits": {

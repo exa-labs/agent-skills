@@ -68,6 +68,7 @@ def check_grounding_live(rows, scenario, config, run_dir):
                          model=config.model("validator"),
                          cwd=run_dir,
                          timeout_s=config.limit("validator_timeout_s"),
+                         env_extra=config.actor_env("validator"),
                          allowed_tools=["WebFetch", "WebSearch", "Bash(curl:*)"],
                          disallowed_tools=["Write", "Edit", "NotebookEdit"])
         cost += res.cost_usd

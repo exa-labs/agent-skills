@@ -58,6 +58,7 @@ def _user_turn(config, scenario, conversation, survey_only=False):
                     survey_only="yes" if survey_only else "no")
     res = run_claude(prompt, model=config.model("user"), cwd=config.pipeline_dir,
                      timeout_s=config.limit("user_turn_timeout_s"),
+                     env_extra=config.actor_env("user"),
                      disallowed_tools=["Bash", "Write", "Edit", "WebFetch", "WebSearch"])
     if not res.ok:
         return {"action": "abort", "message": "", "ux": None,
@@ -114,7 +115,8 @@ def run_session(config, scenario, skill_dir, skill_ref, mode, run_id, bundle_dir
         inner = run_claude(prompt, model=config.model("inner"), cwd=outdir,
                            timeout_s=config.limit("inner_turn_timeout_s"),
                            add_dirs=[skill_dir], resume=session_id,
-                           env_extra=env, strict_mcp=True,
+                           env_extra={**env, **config.actor_env("inner")},
+                           strict_mcp=True,
                            disallowed_tools=inner_disallowed,
                            transcript_path=os.path.join(run_dir, f"transcript-turn{turn:02d}.jsonl"))
         cost += inner.cost_usd

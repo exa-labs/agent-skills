@@ -111,6 +111,12 @@ def make_pipeline(tmp):
                                  cfg["skill"].get("path", ""))
     cfg["skill"]["repo"] = skill_repo
     cfg["skill"]["base_ref"] = "main"
+    # Orchestration tests run every actor through the stub claude; keep them
+    # provider-neutral so they neither require a live provider key nor couple
+    # to whatever routing the production config selects. Per-actor provider
+    # resolution has its own coverage in test_provider_routing.
+    cfg["actor_providers"] = {r: "anthropic" for r in cfg.get("models", {})
+                              if not r.startswith("_")}
     for k in ("inner_turn_timeout_s", "user_turn_timeout_s",
               "validator_timeout_s", "outer_timeout_s"):
         cfg["limits"][k] = 60

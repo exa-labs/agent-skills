@@ -1,6 +1,7 @@
 """Harness configuration: one JSON file, paths resolved relative to pipeline/."""
 import json
 import os
+import re
 
 PIPELINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -45,5 +46,52 @@ class Config:
     def model(self, role):
         return self.data["models"][role]
 
+    def actor_env(self, role):
+        """Environment overrides that route this actor's `claude -p` at a
+        provider other than the regular Claude account.
+
+        Each actor (user/inner/validator/outer/importer) names a provider via
+        `actor_providers`; the named preset in `providers` carries the
+        base_url + credentials. The default provider is `anthropic` (no
+        base_url), which returns `{}` so the actor runs on the machine's
+        regular Claude account — keeping the strategic Outer on a strong
+        Anthropic model while cheaper actors can route elsewhere.
+
+        The base_url must speak the **Anthropic Messages API** (Claude Code
+        only talks that protocol): the FireConnect router, an Anthropic-
+        compatible proxy, etc. Secrets are read from the environment at
+        runtime (never stored in config.json). A returned value of `None`
+        means "delete this var from the subprocess env" (see run_claude), so
+        an ambient ANTHROPIC_API_KEY can't shadow a routed provider's token.
+        """
+        preset_name = self.data.get("actor_providers", {}).get(role, "anthropic")
+        preset = self.data.get("providers", {}).get(preset_name, {})
+        base_url = preset.get("base_url")
+        if not base_url:
+            return {}
+        # ANTHROPIC_API_KEY must be an empty string, not unset: Claude Code
+        # falls back to authenticating against Anthropic (or a cached OAuth
+        # login) when it is null, which would silently defeat the routing.
+        env = {"ANTHROPIC_BASE_URL": _expand_env(base_url),
+               "ANTHROPIC_API_KEY": ""}
+        key_env = preset.get("api_key_env")
+        if key_env:
+            token = os.environ.get(key_env, "").strip()
+            if not token:
+                raise RuntimeError(
+                    f"actor '{role}' routes through provider '{preset_name}', "
+                    f"which needs ${key_env} — but it is unset in the environment")
+            env["ANTHROPIC_AUTH_TOKEN"] = token
+        headers = preset.get("custom_headers")
+        if headers:
+            env["ANTHROPIC_CUSTOM_HEADERS"] = _expand_env(headers)
+        return env
+
     def limit(self, key):
         return self.data["limits"][key]
+
+
+def _expand_env(s):
+    """Substitute ${VAR} with os.environ[VAR] so config.json holds env-var
+    references (e.g. custom_headers) instead of raw secrets."""
+    return re.sub(r"\$\{(\w+)\}", lambda m: os.environ.get(m.group(1), ""), s)

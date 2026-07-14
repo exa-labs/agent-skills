@@ -85,7 +85,13 @@ def run_claude(prompt, *, model, cwd, timeout_s,
     cmd.append(prompt)
 
     env = dict(os.environ)
-    env.update(env_extra or {})
+    # A None value means "unset this var for the subprocess" (used to route an
+    # actor at a non-default provider without an ambient key shadowing it).
+    for k, v in (env_extra or {}).items():
+        if v is None:
+            env.pop(k, None)
+        else:
+            env[k] = v
 
     try:
         proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True,

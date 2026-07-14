@@ -49,6 +49,7 @@ def cmd_import(config, args):
             print(f"enriching {s.id} ...")
             res = run_claude(prompt, model=config.model("importer"), cwd=s.path,
                              timeout_s=config.limit("validator_timeout_s"),
+                             env_extra=config.actor_env("importer"),
                              allowed_tools=["Read", "Write", "Edit"],
                              disallowed_tools=["Bash", "WebFetch", "WebSearch"])
             print(res.text if res.ok else f"  FAILED: {res.error}")
