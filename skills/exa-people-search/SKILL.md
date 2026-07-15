@@ -46,6 +46,15 @@ instead of only a spreadsheet.
 
 ## Prerequisites
 
+**Run these checks up front — before or while you build the Step 1 plan, not at run time.**
+They are cheap (shell/Python detection is local and free; the key check is one tiny call) and
+they decide your execution path, so running them late means discovering — *after* the whole
+plan-and-preferences conversation — that there is no key or no shell, which is exactly the
+friction to avoid. Detect silently and surface only what needs action: which transport you have
+(the bundled orchestrator, or the Exa MCP fallback when there is no shell/Python) and whether a
+key is set. Fold anything the user must do — set a key, or "there's no terminal here so we'll use
+MCP" — into the Step 1 checkpoint (or raise it sooner), never spring it at run time.
+
 - An Exa API key with **Agent API access** (not all keys have it). The skill resolves it in this
   order: **`EXA_API_KEY` in the environment first, then the credentials file `~/.config/exa/key`**
   (override the path with `EXA_KEY_FILE`). Quick check — this must return HTTP 200, not 429/401:
