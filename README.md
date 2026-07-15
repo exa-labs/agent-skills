@@ -16,6 +16,8 @@ Connect AI assistants to Exa's API skills: search, contents extraction, answer, 
 | `build-with-exa` | Build applications and agents with Exa's API Platform: search, contents extraction, answer, context, Agent API, monitors, websets, OpenAI-compatible endpoints, and `exa-py` / `exa-js`. |
 | `exa-search` | Call Exa Search directly with cURL or raw HTTP for semantic web search, ranked results, content extraction, structured output, filters, freshness, and streaming search responses. |
 | `exa-contents` | Call Exa Contents directly with cURL or raw HTTP for extracted text, highlights, summaries, links, image links, subpages, and freshness-controlled crawling from known URLs. |
+| `company-research` | Research companies, competitors, funding, news, leadership, and market context with Exa Agent and advanced search. |
+| `lead-generation` | Generate enriched ICP-based lead lists with Exa Agent, including structured scoring and CSV output. |
 
 ## Installation
 
