@@ -56,6 +56,8 @@ python3 orchestrator/source_candidates.py --config orchestrator/config.example.j
 ```
 
 Edit `config.example.json` (role, locations, exclude_employer, dimensions, segments) per role.
+Leave `contact_fields` empty unless the user explicitly asks for contact-ready candidates; when
+requested, add `email`, `phone`, `uri`, or custom `{ "key": ..., "format": ... }` entries.
 Writes `candidates.csv` + `candidates.html` (the interactive viewer, rendered automatically) +
 `candidates.xlsx`, plus `sourcing_state.json` so `--more` can continue the same session later
 (dedupes against everyone already found and keeps verification verdicts).

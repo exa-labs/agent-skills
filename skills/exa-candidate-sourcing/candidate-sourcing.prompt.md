@@ -34,6 +34,11 @@ Write a short plan with these fields:
   networking vendors), **not** at the hiring company. The fan-out is the coverage; one broad query
   under-samples.
 
+Before searching, show the plan and confirm preferences, including whether the output should be
+profiles for review or contact-ready candidates. If contact-ready, confirm the exact fields and row
+cap because contact enrichment costs more per candidate. Ask about the desired output, not why the
+user wants it.
+
 ## 2. Build the graded output schema (construct it, do not paste a fixed one)
 
 Each discovery run must return JSON matching a strict schema built from *your* Step 1 dimensions:
@@ -42,6 +47,9 @@ Each discovery run must return JSON matching a strict schema built from *your* S
 - Each candidate has identity fields: `name`, `currentTitle`, `currentCompany`,
   `location` (nullable), `linkedinUrl` (nullable), `yearsRelevantExperience` (nullable). Add
   `currentlyAtExcludedEmployer` (boolean) only if you set `exclude_employer`.
+- Only when the user requested contact-ready candidates, add the exact requested contact fields as
+  nullable strings using JSON Schema `format: "email"`, `"phone"`, or `"uri"`. List them in
+  `required`; return `null` when no public value is confirmed and never guess or fabricate one.
 - **Each rubric dimension** becomes an object `{ "level": <enum for its scale>, "signals": string[] }`.
   Add an extra string-array field where you want a captured list (e.g. `clouds`).
 - A `seniority` object `{ level ∈ [ic_mid, ic_senior, ic_staff_principal, manager, director_plus, unknown], signals[] }`.
@@ -77,6 +85,8 @@ the query. Each query should:
 - Say: use `null` / empty arrays / `"unknown"` when a fact is not publicly supported; **NEVER
   fabricate** a name, LinkedIn URL, employer, or number. If a real LinkedIn profile cannot be
   confirmed, set `linkedinUrl` to `null`.
+- If contact fields were requested, require each field for every candidate and require `null` when
+  no public contact value can be confirmed. Never infer or fabricate contact information.
 
 Create runs one at a time (a parallel create burst can trip the account QPS limit and silently drop
 a segment; retry once on a 429/5xx create), then poll the started runs concurrently. Pass
@@ -122,7 +132,8 @@ otherwise agents repurpose it for unrelated doubts and good candidates get dropp
   shown next to the match score but never changes the order.
 - **Write** `candidates.csv` with columns: rank, name, currentTitle, currentCompany, location, score,
   likely_to_move, months_in_current_role, avg_months_per_prior_role, seniority_vs_role,
-  mobility_signals, overall_tier, confidence, one column per dimension, seniority, concerns,
+  mobility_signals, overall_tier, confidence, one column per dimension, any requested contact
+  columns, seniority, concerns,
   linkedinUrl, verify_exists, verify_match, sources, segment. The four mobility columns justify
   the likely-to-move score (tenure, job-change cadence, seniority vs the role, dated evidence
   from `mobility.signals` joined with `" | "`); leave them and likely_to_move empty when unknown.

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "1.5"
+  version: "1.6"
 ---
 
 # Candidate sourcing from a job description
@@ -110,6 +110,9 @@ employer, target count, and the segment list — in a form they can react to.
 implicit preferences a JD omits. Pick the ones that fit this role (don't interrogate) and invite
 anything else:
 
+- **What the rows should carry** — profiles for review, or contact-ready detail? If contact-ready,
+  confirm the exact fields (such as work email or phone) and row cap because enrichment costs more
+  per candidate. Ask about the desired output, not why they want it.
 - **Seniority / level** — IC vs. manager vs. exec, and a years-of-experience band (matters most).
 - **Dealbreakers / must-not-haves** — profiles, backgrounds, or companies to exclude beyond the
   `exclude_employer` (e.g. no agencies, no pure-research, must be hands-on).
@@ -133,6 +136,7 @@ the orchestrator's `config.json` or run a single discovery search. Only then con
 
 Translate the confirmed plan into a `config.json` (template: `orchestrator/config.example.json`;
 every key maps 1:1 to a plan field): `role`, `locations`, `exclude_employer`, `exclude_people`,
+`contact_fields`,
 `rubric_must_haves`, `rubric_signals`, `dimensions` (`{key, scale}`, optional `extra` string-array
 fields), `segments` (`{label, focus}`), plus `max_per_call` (12), `discovery_effort` (`"medium"`),
 `verify_effort` (`"high"`), and optional `data_sources` (e.g. `["fiber_ai"]` if the account has
@@ -173,6 +177,15 @@ Use `references/candidate-schema.json` as the template — swap in your dimensio
 add `currentlyAtExcludedEmployer` (boolean) if you set `exclude_employer`, and keep
 `additionalProperties: false` with everything `required` so the agent can't omit fields. Bound
 the list with `maxItems` (≈12 per call) to keep cost predictable.
+
+**Contact fields (only when the user asked for contact-ready candidates at the checkpoint).** Add
+the requested fields to the candidate object and final output using nullable standard JSON Schema
+formats: email uses `format: "email"`, phone uses `format: "phone"`, and another public profile URL
+uses `format: "uri"`. List every contact field in `required`; return `null` when no public value can
+be confirmed and never guess or fabricate one. Confirm the exact fields and row cap before running
+because contact enrichment costs more per candidate. The orchestrator accepts shorthand
+`contact_fields` entries (`"email"`, `"phone"`, `"uri"`) or custom entries such as
+`{"key": "workEmail", "format": "email"}`.
 
 ## Step 3 — Discovery: one Exa Agent run per segment
 
@@ -236,7 +249,7 @@ employer. Verify query + schema are in `references/exa-agent-api.md`.
 - **Calibrate** scores down for thin/unconfirmed profiles (missing company/location, low confidence) so they don't float to the top, and display each score as a **percentage of the rubric's maximum possible score** (not clipped at 100); heuristics in `references/scoring-and-calibration.md`.
 - **Drop the ineligible**: anyone verified `not_found`, `matches_role == "no"`, currently at the excluded employer, or with neither a LinkedIn URL nor a known company.
 - **Rank**: confirmed-first, then by match strength, then by calibrated score. The likely-to-move score is displayed next to the match score but never changes the order.
-- **Write** `candidates.csv` with columns: rank, name, linkedinUrl, currentTitle, currentCompany, location, score, likely_to_move, months_in_current_role, avg_months_per_prior_role, seniority_vs_role, mobility_signals, overall_tier, confidence, one column per dimension, seniority, concerns, verify_exists, verify_match, sources, segment. The four mobility columns are tenure, job-change cadence, seniority vs the role, and the dated evidence from `mobility.signals` joined with `" | "`; leave them and likely_to_move empty when unknown. `sources` is the candidate's grounding citation URLs joined with `" | "`; leave it empty when unknown. Also print a compact markdown table of the top results in chat, including both scores.
+- **Write** `candidates.csv` with columns: rank, name, linkedinUrl, currentTitle, currentCompany, location, score, likely_to_move, months_in_current_role, avg_months_per_prior_role, seniority_vs_role, mobility_signals, overall_tier, confidence, one column per dimension, any requested contact columns, seniority, concerns, verify_exists, verify_match, sources, segment. The four mobility columns are tenure, job-change cadence, seniority vs the role, and the dated evidence from `mobility.signals` joined with `" | "`; leave them and likely_to_move empty when unknown. `sources` is the candidate's grounding citation URLs joined with `" | "`; leave it empty when unknown. Also print a compact markdown table of the top results in chat, including both scores.
 - **Render the interactive viewer** from the CSV with the bundled script (the orchestrator does
   this automatically; do not hand-build HTML or copy rows into a page yourself):
   ```bash

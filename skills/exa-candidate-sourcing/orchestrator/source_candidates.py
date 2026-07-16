@@ -105,6 +105,27 @@ def _grade(scale, extra=None):
     return {"type": "object", "additionalProperties": False, "required": req, "properties": props}
 
 
+CONTACT_FORMATS = {"email": "email", "phone": "phone", "uri": "uri", "url": "uri"}
+
+
+def contact_fields(cfg):
+    """Normalize opt-in contact fields into (column name, JSON Schema format) pairs."""
+    out = []
+    for field in cfg.get("contact_fields", []):
+        if isinstance(field, str):
+            key = field.strip()
+            fmt = CONTACT_FORMATS.get(key.lower())
+            if not fmt:
+                raise ValueError(f"unknown contact field {field!r}; use email/phone/uri or "
+                                 "{'key': ..., 'format': ...}")
+        elif isinstance(field, dict):
+            key, fmt = field["key"], field.get("format", "email")
+        else:
+            continue
+        out.append((key, fmt))
+    return out
+
+
 def build_schema(cfg):
     props = {
         "name": {"type": "string"}, "currentTitle": {"type": "string"}, "currentCompany": {"type": "string"},
@@ -112,6 +133,9 @@ def build_schema(cfg):
         "yearsRelevantExperience": {"type": ["number", "null"]},
     }
     req = list(props)
+    for key, fmt in contact_fields(cfg):
+        props[key] = {"type": ["string", "null"], "format": fmt}
+        req.append(key)
     if cfg.get("exclude_employer"):
         props["currentlyAtExcludedEmployer"] = {"type": "boolean"}
         req.append("currentlyAtExcludedEmployer")
@@ -175,6 +199,11 @@ def discovery_query(cfg, segment):
     if _providers(cfg):
         p.append(f"A {' and '.join(_providers(cfg))} people data source is attached; use it to surface "
                  "candidates and to confirm each person's current title, employer, location, and LinkedIn URL.")
+    contacts = contact_fields(cfg)
+    if contacts:
+        p.append("Also return these public contact fields for each candidate: "
+                 + ", ".join(key for key, _ in contacts)
+                 + ". Set a field to null when no value can be confirmed; never guess or fabricate a contact value.")
     p.append("Search beyond the LinkedIn headline: full work history, GitHub, conference/meetup talks, company "
              "team pages, certification registries, blogs; corroborate across at least two sources where possible.")
     p.append("Use null, empty arrays, or the 'unknown' enum whenever a fact is not supported by public evidence; "
@@ -472,11 +501,12 @@ def verify(cfg, candidates, concurrency):
 # ----------------------------- output ---------------------------
 def write_outputs(cfg, final):
     dims = [d["key"] for d in cfg["dimensions"]]
+    contacts = [key for key, _ in contact_fields(cfg)]
     cols = ["rank", "name", "linkedinUrl", "currentTitle", "currentCompany", "location",
             "score", "likely_to_move",
             "months_in_current_role", "avg_months_per_prior_role", "seniority_vs_role",
             "mobility_signals", "overall_tier", "confidence"] \
-        + dims + ["seniority", "concerns", "verify_exists", "verify_match",
+        + dims + contacts + ["seniority", "concerns", "verify_exists", "verify_match",
                   "sources", "segment"]
 
     def row(i, c):
@@ -494,6 +524,7 @@ def write_outputs(cfg, final):
                 vs_role if vs_role in ("step_up", "aligned", "step_down") else "",
                 " | ".join((mob.get("signals") or [])[:3]),
                 of.get("tier"), of.get("confidence")] + [lvl(c, k) for k in dims] \
+            + [c.get(key) for key in contacts] \
             + [(c.get("seniority") or {}).get("level"), " | ".join((of.get("concerns") or [])[:2]),
                c.get("_exists", ""), c.get("_match", ""),
                " | ".join(c.get("_sources") or []), c.get("_segment")]

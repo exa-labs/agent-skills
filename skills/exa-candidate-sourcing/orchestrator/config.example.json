@@ -4,6 +4,8 @@
   "exclude_employer": "Amazon / AWS / Amazon Web Services",
   "exclude_people": [],
   "_comment_exclude_people": "Optional: an existing pipeline/ATS list to skip. Each entry is a name (\"Jane Doe\") or a LinkedIn URL, or {\"name\": ..., \"linkedinUrl\": ...}. Also settable via --exclude-file (one per line). Fed to each run's input.exclusion and filtered from results.",
+  "contact_fields": [],
+  "_comment_contact_fields": "Empty by default. Set ONLY when the user asked for contact-ready candidates. Each entry is a shorthand string (\"email\", \"phone\", \"uri\") or {\"key\": \"workEmail\", \"format\": \"email\"} for a custom column. Fields are added to the output schema and CSV/XLSX as nullable values (null when nothing public is found, never fabricated). Contact enrichment costs more per candidate.",
   "rubric_must_haves": [
     "4+ years in a technical domain: software development, cloud computing, systems engineering, infrastructure, security, networking, or data & analytics.",
     "2+ years of design, implementation, or consulting experience with applications and infrastructure.",
