@@ -61,13 +61,19 @@ def _req(method, path, body=None):
         return e.code, {"error": e.read().decode()}
 
 
+_CREATE_LOCK = threading.Lock()   # serialize creates across threads: a parallel create burst trips the account QPS limit
+
+
 def create_run(body, label=""):
-    """Start a run; one short retry on 429/5xx so a transient rejection does not drop a segment."""
-    st, resp = _req("POST", "/agent/runs", body)
-    if st == 429 or st >= 500:
-        print(f"  [{label}] create hit HTTP {st}, retrying once...")
-        time.sleep(2)
+    """Start a run; one short retry on 429/5xx so a rate-limit/5xx rejection does not drop a segment.
+    Creates are serialized (+1s stagger) so concurrent segment/verify workers don't burst the QPS limit."""
+    with _CREATE_LOCK:
         st, resp = _req("POST", "/agent/runs", body)
+        if st == 429 or st >= 500:
+            print(f"  [{label}] create hit HTTP {st}, retrying once...")
+            time.sleep(2)
+            st, resp = _req("POST", "/agent/runs", body)
+        time.sleep(1)
     if st >= 300:
         print(f"  [{label}] create failed HTTP {st}: {str(resp)[:160]}")
         return None
@@ -93,6 +99,26 @@ def wait_run(rid, max_wait=1200, poll=8, label=""):
             print(f"  [{label}] timed out after {max_wait}s, cancelled {rid}")
             return None
         time.sleep(poll)
+
+
+def run_to_completion(body, label="", attempts=3):
+    """Create + poll one run to completion, retrying with a FRESH run if it doesn't complete.
+    A run that is rejected at create, or reaches a `failed`/timeout terminal, is retried (up to
+    `attempts`) rather than dropped — otherwise a whole discovery segment or verify batch could be
+    lost and skew the shortlist toward the runs that finished.
+    Returns (run_id, completed_run_json), or (None, None) if every attempt fails."""
+    for attempt in range(1, attempts + 1):
+        rid = create_run(body, label=label)
+        if rid:
+            r = wait_run(rid, label=label)
+            if r is not None:
+                return rid, r
+        if attempt < attempts:
+            back = 6 * attempt
+            print(f"  [{label}] run did not complete, retry {attempt + 1}/{attempts} in {back}s...")
+            time.sleep(back)
+    print(f"  [{label}] FAILED after {attempts} attempts")
+    return None, None
 
 
 # ----------------------------- schema ---------------------------
@@ -275,43 +301,42 @@ def discovery_body(cfg, schema, seg, excl, prev_rid=None):
 
 
 def discover(cfg, schema, segments, concurrency, prev_run_ids=None, seen_names=None):
-    """One run per segment. Returns (candidates, {segment label: run id}); the run ids
-    feed --more continuations via previousRunId."""
+    """One run per segment, each retried via run_to_completion if it doesn't complete. Returns
+    (candidates, {segment label: run id}); only *completed* segments contribute a run id, so an
+    incomplete segment never poisons a --more continuation (its previousRunId wouldn't be valid).
+    Creates are serialized inside create_run; the polls run concurrently."""
     found, seen_names = [], list(seen_names or [])
-    run_ids = {}
+    run_ids, lock = {}, threading.Lock()
+    attempts = cfg.get("max_attempts", 3)
     for i in range(0, len(segments), concurrency):
         batch = segments[i:i + concurrency]
         # newest 300: keeps continuation-round create bodies bounded
         excl = [{"person": n} for n in seen_names[-300:]]
-        # Create sequentially (a parallel create burst can trip the account QPS limit),
-        # then poll the started runs concurrently.
-        started = []
-        for seg in batch:
-            rid = create_run(discovery_body(cfg, schema, seg, excl, (prev_run_ids or {}).get(seg["label"])),
-                             label=seg["label"])
-            if rid:
-                started.append((seg, rid))
-                run_ids[seg["label"]] = rid
-            time.sleep(1)
         results = {}
 
-        def work(seg, rid):
-            r = wait_run(rid, label=seg["label"])
-            out = ((r or {}).get("output") or {})
+        def work(seg):
+            body = discovery_body(cfg, schema, seg, excl, (prev_run_ids or {}).get(seg["label"]))
+            rid, r = run_to_completion(body, label=seg["label"], attempts=attempts)
+            if r is None:
+                results[seg["label"]] = None
+                return
+            out = (r.get("output") or {})
             cands = (out.get("structured") or {}).get("candidates") or []
             grounded = grounding_by_index(out.get("grounding"))
-            for i, c in enumerate(cands):
+            for idx, c in enumerate(cands):
                 c["_segment"] = seg["label"]
-                if i in grounded:
-                    c["_sources"] = grounded[i]
+                if idx in grounded:
+                    c["_sources"] = grounded[idx]
             results[seg["label"]] = cands
+            with lock:
+                run_ids[seg["label"]] = rid   # record the run id only for a completed segment
             print(f"  [{seg['label']}] {len(cands)} candidates")
 
-        ts = [threading.Thread(target=work, args=(s, rid)) for s, rid in started]
+        ts = [threading.Thread(target=work, args=(s,)) for s in batch]
         for t in ts: t.start()
         for t in ts: t.join()
-        for s, _rid in started:
-            for c in results.get(s["label"], []):
+        for s in batch:
+            for c in (results.get(s["label"]) or []):
                 found.append(c)
                 if c.get("name"):
                     seen_names.append(c["name"])
@@ -468,30 +493,28 @@ def verify(cfg, candidates, concurrency):
     batches = [candidates[i:i + 8] for i in range(0, len(candidates), 8)]
     schema = verify_schema(cfg)
     verdicts, lock = {}, threading.Lock()
+    attempts = cfg.get("max_attempts", 3)
     for i in range(0, len(batches), concurrency):
         grp = batches[i:i + concurrency]
-        started = []
-        for b in grp:
+
+        def work(b):
             rows = [{"id": _key(c), "name": c.get("name"), "claimed_title": c.get("currentTitle"),
                      "claimed_company": c.get("currentCompany"), "claimed_location": c.get("location"),
                      "linkedin_url": c.get("linkedinUrl")} for c in b]
-            rid = create_run({"query": verify_query(cfg), "effort": cfg.get("verify_effort", "high"),
-                              "outputSchema": schema, "input": {"data": rows}}, label="verify")
-            if rid:
-                started.append((b, rid))
-            time.sleep(1)
-
-        def work(b, rid):
-            r = wait_run(rid, label="verify")
+            _rid, r = run_to_completion({"query": verify_query(cfg), "effort": cfg.get("verify_effort", "high"),
+                                         "outputSchema": schema, "input": {"data": rows}},
+                                        label="verify", attempts=attempts)
+            if r is None:
+                return
             sent = {_key(c) for c in b}
-            for v in (((r or {}).get("output") or {}).get("structured") or {}).get("verdicts") or []:
+            for v in ((r.get("output") or {}).get("structured") or {}).get("verdicts") or []:
                 if v.get("id") in sent:
                     with lock:
                         verdicts[v["id"]] = v
                 else:
                     print(f"  dropped verdict with unknown id {v.get('id')!r} ({v.get('name')})")
 
-        ts = [threading.Thread(target=work, args=(b, rid)) for b, rid in started]
+        ts = [threading.Thread(target=work, args=(b,)) for b in grp]
         for t in ts: t.start()
         for t in ts: t.join()
         print(f"  verified {min((i + concurrency) * 8, len(candidates))}/{len(candidates)}")

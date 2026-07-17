@@ -73,8 +73,13 @@ the rest only some — so a candidate without an entry is normal, not an error.
   mention the attached source in the query so the agent uses it.
 - `previousRunId`: starts a new run that carries over a completed run's research context; use for
   "find N more" follow-ups together with `input.exclusion` of everyone already seen.
-- Creates can transiently fail with 429/5xx if several runs start at once; create runs one at a
+- Starting several runs at once can hit a 429/5xx rate limit; create runs one at a
   time and retry a failed create once before giving up on a segment.
+- Runs are async and aren't guaranteed to reach `completed` on the first attempt (a run can end
+  `failed` or time out). Treat that as retryable: start a fresh run (new create; do NOT reuse the id
+  as `previousRunId`) a couple of times before dropping the segment/batch, so one run's outcome
+  doesn't skew the pool. The orchestrator's `run_to_completion` helper does this (bounded by the
+  `max_attempts` config key).
 
 ## Effort / cost (fixed modes)
 

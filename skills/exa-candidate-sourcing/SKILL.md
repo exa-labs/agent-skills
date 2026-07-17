@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "1.7"
+  version: "1.9"
 ---
 
 # Candidate sourcing from a job description
@@ -83,7 +83,11 @@ review the shortlist interactively in a browser instead of only a spreadsheet.
 
 ## Step 1 — Read the JD and build a search plan
 
-Read the JD (a URL or pasted text). If it is a URL, fetch it first. Then write a short **search plan** with these fields:
+Read the JD (a URL or pasted text). If it is a URL, fetch it first. *If Ashby is connected and the
+user names or implies a role instead of pasting a JD, that's the preferred entry point: resolve the
+job in Ashby and pull its JD, auto-fill `locations`, pre-load the job's pipeline as dedupe
+exclusions, and keep the job id for the optional push-back — then present the built plan at the
+checkpoint. Flow in `references/ashby-integration.md`.* Then write a short **search plan** with these fields:
 
 - **role** — one line (e.g. "Solutions Architect, ISV — customer-facing pre-sales cloud SA role").
 - **dimensions** — 4–8 rubric dimensions to grade, derived from the JD's requirements. For each, pick a scale:
@@ -140,7 +144,8 @@ every key maps 1:1 to a plan field): `role`, `locations`, `exclude_employer`, `e
 `contact_fields`,
 `rubric_must_haves`, `rubric_signals`, `dimensions` (`{key, scale}`, optional `extra` string-array
 fields), `segments` (`{label, focus}`), plus `max_per_call` (12), `discovery_effort` (`"medium"`),
-`verify_effort` (`"high"`), and optional `data_sources` (e.g. `["fiber_ai"]` if the account has
+`verify_effort` (`"high"`), `max_attempts` (retries per segment/verify batch if a run doesn't
+complete, default 3), and optional `data_sources` (e.g. `["fiber_ai"]` if the account has
 Exa Connect people data). Then run:
 
 ```bash
@@ -206,9 +211,13 @@ If your account has Exa Connect data partners, attach a people-data source with
 **Create runs one at a time** (retry once on a 429/5xx create), then poll the started runs
 concurrently. Pass already-seen names as `input.exclusion` (`[{"person": "<name>"}, ...]`) on
 later batches so segments don't all return the same obvious people. **Poll** `GET /agent/runs/{id}` every ~8s
-until `status` is `completed` (read candidates from `output.structured.candidates`); if it
-`failed`/`canceled` or the poll gets a non-429 4xx, skip it; if it runs longer than ~20 min,
-cancel it and move on.
+until `status` is `completed` (read candidates from `output.structured.candidates`). A run isn't
+guaranteed to reach `completed` on the first try — if it ends `failed`/`canceled` or times out past
+~20 min, treat it as retryable: **restart the segment with a fresh run** (new run from the same
+body; do not reuse the run id as `previousRunId`), a couple of times before giving up. Dropping a
+segment outright skews the pool toward the ones that completed. Only a non-429 4xx on the poll (a
+genuinely bad/expired id) should be skipped without retry. (The orchestrator does this
+automatically — see `run_to_completion` / the `max_attempts` config key.)
 
 Completed runs also return **`output.grounding`**: source citations keyed to output fields
 (e.g. `structured.candidates[3]` with `[{url, title}]`). Attribute each entry to its candidate

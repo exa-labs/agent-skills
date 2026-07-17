@@ -14,20 +14,47 @@ sourced shortlist into the ATS"). Never put raw conversation text in it.
 
 ## Where it plugs into the workflow
 
-- **Input side — dedupe against the live pipeline (Step 1 checkpoint).** Instead of a hand-built
-  exclude list, pull the people already on the job and feed them into `exclude_people` /
-  `input.exclusion` so sourcing doesn't re-surface them.
+- **Entry point — start from an Ashby job (Step 1).** The ergonomic front door: when the user names
+  or implies a role instead of pasting a JD, pull the JD from Ashby and build the plan from it.
+- **Input side — dedupe against the live pipeline (Step 1 checkpoint).** Pull the people already on
+  the job and feed them into `exclude_people` / `input.exclusion` so sourcing doesn't re-surface them.
 - **Output side — push the verified shortlist (after Step 6).** Turn the ranked CSV into real
   candidate records + applications on the job, each with a note carrying the score, rubric, and
   sources. This is where the skill otherwise dead-ends at a file.
 
-Both start by resolving the **job id**:
+All three key off the **job id**, so resolve it once and reuse it:
 
 ```
 search_records_by_name(entityType: "job", query: "<role / job title>", reason: "...")
 ```
 
-If more than one job matches, show the user the candidates and let them pick — never guess the job.
+If more than one job matches, show the matches (title · team · location) and let the user pick —
+**never guess** (open reqs often have near-duplicate titles). If the user names no role, offer to
+`filter_records(objectType: "job", filter: {"field":"status","operator":"equals","value":"Open"},
+resultMode: "summary")` and let them pick from the open roster. Keep the resolved `jobId` for the
+dedupe and push steps — don't re-resolve it.
+
+## Entry point — pull the JD from an Ashby job (Step 1)
+
+When the user starts from a role rather than pasted text, this replaces "read the pasted JD". Two
+hydration calls after you have the `jobId`:
+
+1. `get_record_details(entityType: "job", entityIds: [jobId])` → metadata (`title`, `team`,
+   `location`, `confidential`) plus **`defaultJobPostingId`**. The JD body is *not* on the job.
+2. `get_record_details(entityType: "job_posting", entityIds: [defaultJobPostingId])` → the
+   **`description`** field is the full JD. Also returns structured `location` + `workplaceType`.
+
+Then:
+
+- **Confirm the resolved job before spending** — show `title · team · location` and a one-line JD
+  snippet so a wrong duplicate match doesn't burn a run.
+- Build the Step-1 plan from `description` exactly as you would from a pasted JD, and **auto-fill
+  `locations`** from the posting's `location` / `workplaceType`.
+- **Prime the rest in the same turn** (this was the chosen entry behavior): pull the pipeline for
+  dedupe (see input side) and keep `jobId` for the push (see output side), so the checkpoint shows
+  an already-primed plan.
+- **Empty/unpublished posting?** `description` comes back null or thin — fall back to asking the
+  user to paste the JD.
 
 ## Output side — push the shortlist
 
