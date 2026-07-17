@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "1.6"
+  version: "1.7"
 ---
 
 # Candidate sourcing from a job description
@@ -16,9 +16,8 @@ skill — do the planning and the interpretation: read the JD, design the search
 recruiter, then hand execution to the bundled **`orchestrator/source_candidates.py`** (the
 default path), which runs the whole pipeline from a `config.json`: discovery fan-out,
 verification, scoring, and the CSV + HTML viewer. The orchestrator exists so candidate data
-never passes through you: every name, URL, and score is moved and computed by code, which
-removes the transcription and hallucination errors that creep in when a model re-types
-run outputs between steps. Run Steps 2-6 **by hand** only when the orchestrator cannot run:
+never passes through you: every name, URL, and score is moved and computed by code, not
+re-typed by a model between steps. Run Steps 2-6 **by hand** only when the orchestrator cannot run:
 no shell or Python available, debugging a single run, or a deliberately tiny search.
 **Whichever path executes, the Step 1 plan-and-preferences checkpoint is mandatory:
 build the plan, confirm it, and gather the recruiter's preferences before you write the
@@ -54,7 +53,7 @@ review the shortlist interactively in a browser instead of only a spreadsheet.
     -H "x-api-key: $KEY" -H "Content-Type: application/json" \
     -d '{"query":"Say hi in one word","effort":"low"}'
   ```
-- **No key set (common on a first run, especially for non-technical users)?** Do **not** walk the
+- **No key set?** Do **not** walk the
   user through editing a shell profile by hand, and do **not** accept a key pasted into the chat.
   Instead point them at the bundled setup script, which is the whole flow: they run one command in
   their own terminal, paste the key once at a hidden prompt, and it writes `~/.config/exa/key` and
@@ -122,6 +121,8 @@ anything else:
   them in the `exclude_people` config key (a name, a LinkedIn URL, or `{name, linkedinUrl}`) or
   pass a `--exclude-file` (one per line); both seed `input.exclusion` and are filtered from the
   results. Running by hand, pass them as `input.exclusion` on the discovery runs yourself.
+  *If Ashby is connected, offer to pull the job's current pipeline and dedupe against it
+  automatically instead — see `references/ashby-integration.md`.*
 - **Location strictness** — hard requirement vs. nice-to-have; is remote acceptable?
 - **Non-obvious context** — team, why a past hire did or didn't work out, anything implicit they'd
   add. End with an open "anything I'm missing?"
@@ -161,7 +162,7 @@ finish the pipeline by hand from partial output.
 
 **Steps 2-6 below describe the pipeline the orchestrator executes.** Read them to understand
 what the config controls and what the output means; follow them manually only in the fallback
-cases from the intro (no shell/Python, single-run debugging, or a deliberately tiny search).
+cases from the intro.
 
 ## Step 2 — Build the graded output schema
 
@@ -182,8 +183,7 @@ the list with `maxItems` (≈12 per call) to keep cost predictable.
 the requested fields to the candidate object and final output using nullable standard JSON Schema
 formats: email uses `format: "email"`, phone uses `format: "phone"`, and another public profile URL
 uses `format: "uri"`. List every contact field in `required`; return `null` when no public value can
-be confirmed and never guess or fabricate one. Confirm the exact fields and row cap before running
-because contact enrichment costs more per candidate. The orchestrator accepts shorthand
+be confirmed and never guess or fabricate one. The orchestrator accepts shorthand
 `contact_fields` entries (`"email"`, `"phone"`, `"uri"`) or custom entries such as
 `{"key": "workEmail", "format": "email"}`.
 
@@ -198,7 +198,7 @@ If your account has Exa Connect data partners, attach a people-data source with
 - Prioritize the target `locations`.
 - If `exclude_employer` is set: exclude current employees of that company; set `currentlyAtExcludedEmployer=true` and drop them. Don't bias toward that employer's own title vocabulary.
 - Require a graded `{level, signals}` for **every** dimension plus an `overallFit`.
-- Require `mobility` from the **dated** public work history: `monthsInCurrentRole` (months since they started the current position), `monthsAtCurrentCompany`, `avgMonthsPerPriorRole` (mean months per position across roughly the last 3-5 previous positions), and `seniorityVsRole` (would this role be a `step_up`, `aligned`, or `step_down` versus their current level; `step_down` means overqualified). Dated evidence goes in `mobility.signals`; use `null`/`unknown` when start dates are not public, and never estimate a tenure without a dated source.
+- Require the `mobility` fields (defined in Step 2) from the **dated** public work history. Dated evidence goes in `mobility.signals`; use `null`/`unknown` when start dates are not public, and never estimate a tenure without a dated source.
 - **Calibrate the grading**: grade strictly and comparatively — a dimension is `strong` only with direct public evidence, `partial` when inferred; reserve tier `exceptional` for at most 1–2 near-perfect fits per batch; `confidence: high` only with multi-source corroboration.
 - Say: search beyond the LinkedIn headline (full work history, GitHub, talks, team pages, certs, blogs); corroborate across ≥2 sources.
 - Say: use `null` / empty arrays / `"unknown"` when a fact isn't publicly supported; **NEVER fabricate** a name, LinkedIn URL, employer, or number. If a real LinkedIn profile can't be confirmed, set `linkedinUrl` to `null`.
@@ -228,7 +228,7 @@ The exact query template and a copy-paste curl loop are in `references/exa-agent
 - **Dedup** across segments by normalized LinkedIn slug (`linkedin.com/in/<slug>`), falling back to a normalized name. Keep the higher-scored copy.
 - **Drop excluded** people: `currentlyAtExcludedEmployer == true`, or `currentCompany` matches `exclude_employer`.
 - **Score** each candidate from its grades — see `references/scoring-and-calibration.md` for the exact weights.
-- **Compute likely-to-move** from each candidate's `mobility` object with the fixed formula in `references/scoring-and-calibration.md`. It is a separate 0-100 score (null when no signal is known); it never feeds the match score or the ranking.
+- **Compute likely-to-move** from each candidate's `mobility` object with the fixed formula in `references/scoring-and-calibration.md`. It is a separate 0-100 score, null when no signal is known.
 
 ## Step 5 — Verify the shortlist
 
@@ -255,7 +255,16 @@ employer. Verify query + schema are in `references/exa-agent-api.md`.
   ```bash
   python3 orchestrator/render_viewer.py candidates.csv candidates.html --title "<role>"
   ```
-  It embeds the CSV rows into `viewer/candidate-viewer.template.html` and writes one self-contained file: sortable columns, search, segment/verification filters, expandable per-candidate details with clickable LinkedIn and source links. **Tell the user what it is and to open it**, or they may not realize it is meant to be opened: `candidates.html` is the interactive viewer for the results (what they should actually review). Give them its path and tell them to open it in a browser in whatever way fits how they are working. The CSV stays the source artifact.
+  It embeds the CSV rows into `viewer/candidate-viewer.template.html` and writes one self-contained file: sortable columns, search, segment/verification filters, expandable per-candidate details with clickable LinkedIn and source links. **Tell the user what it is and give them its path to open in a browser** — otherwise they may not realize `candidates.html` is the interactive viewer they should actually review. The CSV stays the source artifact.
+
+## Optional — sync the shortlist to your ATS
+
+The CSV/HTML is the deliverable for any recruiter. **Only if Ashby is connected**, offer as a
+follow-up to push the verified shortlist into it — create the candidates on the job and attach each
+one's score, rubric, and sources as a note — and/or to dedupe discovery against the job's live
+pipeline (Step 1). Never do this silently: propose it, confirm which candidates and which job, and
+read every fact from `candidates.csv`. Full flow and tool mapping: `references/ashby-integration.md`.
+If it isn't connected, don't mention it.
 
 ## Tips
 
