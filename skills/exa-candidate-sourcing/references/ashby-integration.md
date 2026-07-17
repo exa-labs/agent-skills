@@ -22,17 +22,24 @@ sourced shortlist into the ATS"). Never put raw conversation text in it.
   candidate records + applications on the job, each with a note carrying the score, rubric, and
   sources. This is where the skill otherwise dead-ends at a file.
 
-All three key off the **job id**, so resolve it once and reuse it:
+All three key off the **job id**, so resolve it once and reuse it. **Resolve by name — don't open by
+listing the roster** (an org can have dozens of open reqs across pages; dumping them is the clunky
+path):
 
 ```
 search_records_by_name(entityType: "job", query: "<role / job title>", reason: "...")
 ```
 
-If more than one job matches, show the matches (title · team · location) and let the user pick —
-**never guess** (open reqs often have near-duplicate titles). If the user names no role, offer to
-`filter_records(objectType: "job", filter: {"field":"status","operator":"equals","value":"Open"},
-resultMode: "summary")` and let them pick from the open roster. Keep the resolved `jobId` for the
-dedupe and push steps — don't re-resolve it.
+- **Ask for the role by title or keyword first** — even partial ("retrieval", "backend") — and
+  resolve it with `search_records_by_name`.
+- **If more than one job matches**, show the matches (title · team · location) and let the user
+  pick — **never guess** (open reqs often have near-duplicate titles).
+- **Only if the user asks to browse, or a keyword returns nothing**, list open roles with
+  `filter_records(objectType:"job", filter:{"field":"status","operator":"equals","value":"Open"},
+  resultMode:"summary")`. It paginates (`nextCursor`), so **don't page through and dump everything** —
+  narrow by team or keyword and offer a short set to choose from.
+
+Keep the resolved `jobId` for the dedupe and push steps — don't re-resolve it.
 
 ## Entry point — pull the JD from an Ashby job (Step 1)
 

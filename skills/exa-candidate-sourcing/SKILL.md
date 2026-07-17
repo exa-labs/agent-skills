@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "1.9"
+  version: "1.10"
 ---
 
 # Candidate sourcing from a job description
@@ -85,9 +85,10 @@ review the shortlist interactively in a browser instead of only a spreadsheet.
 
 Read the JD (a URL or pasted text). If it is a URL, fetch it first. *If Ashby is connected and the
 user names or implies a role instead of pasting a JD, that's the preferred entry point: resolve the
-job in Ashby and pull its JD, auto-fill `locations`, pre-load the job's pipeline as dedupe
-exclusions, and keep the job id for the optional push-back — then present the built plan at the
-checkpoint. Flow in `references/ashby-integration.md`.* Then write a short **search plan** with these fields:
+job by title/keyword (`search_records_by_name`) and pull its JD, auto-fill `locations`, pre-load the
+job's pipeline as dedupe exclusions, and keep the job id for the optional push-back — then present
+the built plan at the checkpoint. If they haven't named a role, ask for a title or keyword rather
+than paging the full open roster. Flow in `references/ashby-integration.md`.* Then write a short **search plan** with these fields:
 
 - **role** — one line (e.g. "Solutions Architect, ISV — customer-facing pre-sales cloud SA role").
 - **dimensions** — 4–8 rubric dimensions to grade, derived from the JD's requirements. For each, pick a scale:
