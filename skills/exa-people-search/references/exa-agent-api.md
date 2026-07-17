@@ -7,7 +7,7 @@ Docs: https://exa.ai/docs/reference/agent-api-guide
 | Method | Path | Purpose |
 | --- | --- | --- |
 | POST | `https://api.exa.ai/agent/runs` | Start a run. Returns `{ "id": "...", "status": "running", ... }`. |
-| GET | `https://api.exa.ai/agent/runs/{id}` | Poll a run. `status ∈ running \| completed \| failed \| canceled`. |
+| GET | `https://api.exa.ai/agent/runs/{id}` | Poll a run. `status ∈ queued \| running \| completed \| failed \| cancelled`. |
 | POST | `https://api.exa.ai/agent/runs/{id}/cancel` | Cancel a queued/running run (no body). |
 
 Auth header: `x-api-key: $EXA_API_KEY`. Content type: `application/json`.
@@ -17,7 +17,7 @@ then read structured results from `output.structured`. A completed run looks lik
 
 ```json
 {
-  "id": "run_...", "status": "completed",
+  "id": "agent_run_...", "status": "completed",
   "output": {
     "text": "…natural-language summary…",
     "structured": { "people": [ { "name": "…", "profileUrl": "…", "...": "…" } ] },
@@ -60,7 +60,7 @@ the rest only some — so a person without an entry is normal, not an error.
     "data": [ { "id": "li:janedoe", "name": "Jane Doe" } ]  // optional: rows to process/enrich
   },
   "dataSources": [ { "provider": "fiber_ai" } ], // optional: Exa Connect data partners
-  "previousRunId": "run_..."                     // optional: continue a completed run's context
+  "previousRunId": "agent_run_..."                     // optional: continue a completed run's context
 }
 ```
 
