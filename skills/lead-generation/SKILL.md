@@ -11,7 +11,7 @@ For very large or continuously maintained lead lists with per-item verification,
 
 ## Prerequisites
 
-This skill requires the Exa MCP server with the Agent tools enabled (`agent_tools`): `agent_create_run`, `agent_wait_for_run`, `agent_get_run_output`, `agent_cancel_run`.
+This skill requires the Exa MCP server with the Agent tool enabled. Use the `agent_tools` URL selection alias to enable `agent_run`.
 
 If the Agent tools are not available, tell the user:
 
@@ -22,15 +22,15 @@ Then stop.
 
 ## Tool Restriction
 
-Use the Exa Agent tools (`agent_create_run`, `agent_wait_for_run`, `agent_get_run_output`, `agent_cancel_run`), plus Write and Bash (for CSV output). Do NOT use generic web search for the lead list itself.
+Use `agent_run`, plus Write and Bash (for CSV output). Do NOT use generic web search for the lead list itself.
 
 ## Workflow
 
 ```
 1. Confirm the ICP with the user (one small Agent run if research is needed)
-2. Create the lead-gen Agent run(s) with an outputSchema
-3. Wait for completion (agent_wait_for_run)
-4. Read output.structured (agent_get_run_output)
+2. Call `agent_run` with an outputSchema
+3. If the result is still running, call `agent_run` again with its `runId`
+4. Read `output.structured` from the `agent_run` result
 5. Write the CSV
 6. Optional: expand with follow-up runs (previousRunId + input.exclusion)
 ```
@@ -40,7 +40,7 @@ Use the Exa Agent tools (`agent_create_run`, `agent_wait_for_run`, `agent_get_ru
 When the user says something like "Make a list of 200 leads for [company]", first establish the Ideal Customer Profile. If the user already described the ICP, confirm it. If not, run one small Agent run to research it:
 
 ```
-agent_create_run {
+agent_run {
   "query": "Research {company_name}: what they sell, who their existing customers are, and what their ideal customer profile is.",
   "effort": "low",
   "outputSchema": {
@@ -83,17 +83,20 @@ Use the run inputs for the pieces the old manual pipeline handled by hand:
 - `outputSchema` — the exact structure back, with `maxItems` bounding the companies array
 - `systemPrompt` — scoring rules, source preferences, dedup/exclusion emphasis
 - `input.exclusion` — companies to avoid (competitors, existing customers, results from earlier runs)
-- `effort` — `"auto"` by default; `"high"` or `"xhigh"` for large or hard lists
+- `effort` — `"low"` by default; `"auto"`, `"high"`, or `"xhigh"` for large or hard lists
 
 Example:
 
 ```
-agent_create_run {
+agent_run {
   "query": "Find 100 companies matching this ICP: {icp_description}. Prioritize {sub_verticals}. For each company, score ICP fit 1-10 for {user_company}.",
-  "effort": "auto",
+  "effort": "low",
   "systemPrompt": "Prefer official company sites and recent funding announcements. Do not include duplicates or subsidiaries of the same parent company.",
   "input": {
-    "exclusion": ["{competitor_1}", "{existing_customer_1}"]
+    "exclusion": [
+      { "company_name": "{competitor_1}" },
+      { "company_name": "{existing_customer_1}" }
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -119,12 +122,12 @@ agent_create_run {
 }
 ```
 
-`agent_create_run` returns an `agent_run_...` ID immediately. Save it.
+`agent_run` returns the completed result when possible. If it returns `status: "running"` with an `agent_run_...` ID, save the ID and continue with `agent_run` using only `runId`.
 
 ## Step 3: Wait and Read Output
 
-1. Call `agent_wait_for_run` with the run ID. It polls until the run reaches a terminal status (`completed`, `failed`, or `cancelled`) or times out — call it again if the run is still going.
-2. When `completed`, call `agent_get_run_output`. Read the companies from `output.structured`, citations from `output.grounding`, and the run cost from `costDollars`.
+1. If the run is still running, call `agent_run` with its `runId` until `outputReady` is true or the run reaches a terminal status (`failed` or `cancelled`).
+2. Read the companies from `output.structured`, citations from `output.grounding`, and the run cost from `costDollars` in the `agent_run` result.
 
 Do not paste the full raw output into the conversation — go straight to CSV.
 
@@ -148,16 +151,16 @@ Print a summary:
 
 If the user wants more leads than one run returned:
 
-- Create a follow-up run with `previousRunId` set to the completed run's ID, asking for additional companies
-- Put the company names already collected into `input.exclusion` so the new run avoids them
+- Create a new follow-up run with `previousRunId` set to the completed run's ID, asking for additional companies
+- Put the company records already collected into `input.exclusion` so the new run avoids them
 - Append the new results to the CSV and re-deduplicate by normalized company name (strip "Inc"/"Ltd"/etc., case-insensitive)
 
 For lists in the many hundreds, run a few runs sequentially this way rather than one giant run, and confirm scope with the user first: "This will require ~{N} Agent runs. Proceed?"
 
 ## Handling Failures
 
-- If a run ends `failed`, read the error from `agent_get_run_output`, adjust the query or schema, and retry once with different wording
-- Use `agent_cancel_run` if a run is clearly researching the wrong thing
+- If a run ends `failed`, read the error from the `agent_run` result, adjust the query or schema, and retry once with different wording
+- If a client cancellation is needed, abort the in-progress `agent_run` call
 - If results are consistently below the requested count, narrow the ICP into 2-3 sub-vertical runs instead of one broad run
 
 ## MCP Configuration
