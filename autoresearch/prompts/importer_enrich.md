@@ -35,7 +35,23 @@ Fill the existing keys (keep the JSON shape, drop the _TODO key):
   rubric-dimension column names a competent run derives from this JD's hard
   requirements (e.g. "rust|backend"); [] if too unpredictable.
 - must_haves_semantic: the JD's hard requirements as short sentences, for the
-  fact-checking validator.
+  fact-checking validator. PERSON-INVARIANT facts only (role, employer,
+  experience, location band) — never deliverable properties like "the row
+  includes an email / phone / personalization"; those are graded per-run by
+  the deterministic checks, while these verdicts freeze into permanent
+  per-person labels that a later, better run cannot shake off.
+
+## Ground-truth rule (hard)
+
+Every graded constraint must derive from the JD or from a persona CHOICE you
+script — never from your memory of the world (you have no web access here).
+Do not invent world-facts as constraints (team sizes, org charts, market
+figures) or cite sources you have not read; if the ask is open-ended
+("as many as you can find"), set target_count to null rather than estimating.
+Excluded people/companies are persona choices and must be communicated in
+conversation before they are graded. For strict-location asks, accept_patterns
+must be complete for the stated region — a missing pattern falsely fails a
+legitimate candidate on a hard gate.
 
 Constraints in expectations.json describe the state AFTER all curveballs.
 Keep both files consistent with each other and with jd.md. Also update

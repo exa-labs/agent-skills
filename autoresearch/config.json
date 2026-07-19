@@ -1,15 +1,30 @@
 {
   "skill": {
     "_comment": "repo is the monorepo root (this repo); path is the skill's subdir within it. base_ref is the branch holding the migrated skills — switch to main once skang/workflow-specific-skills is merged.",
-    "name": "exa-candidate-sourcing",
+    "name": "exa-people-search",
     "repo": "..",
-    "path": "skills/exa-candidate-sourcing",
+    "path": "skills/exa-people-search",
     "base_ref": "skang/workflow-specific-skills",
     "promotion_branch": "pipeline/candidate"
   },
 
+  "profiles": {
+    "_comment": "Per-skill output contract, resolved by skill.name; keys missing here fall back to harness/config.py DEFAULT_PROFILE (the exa-candidate-sourcing contract). Prompts override per skill via prompts/<skill-name>/<file>.",
+    "exa-people-search": {
+      "output_csv": "people.csv",
+      "viewer_html": "people.html",
+      "base_columns": ["rank", "name", "linkedinUrl", "profileUrl", "currentRole",
+                       "currentAffiliation", "location", "score", "overall_tier", "confidence"],
+      "org_column": "currentAffiliation",
+      "title_column": "currentRole",
+      "structured_list_key": "people",
+      "state_file": "people_search_state.json",
+      "requester_role": "requester"
+    }
+  },
+
   "models": {
-    "_comment": "Outer stays on a strong Anthropic model via the regular account. The other four run open-weights models over OpenRouter (see actor_providers). Change these ids to any from openrouter.ai/models; inner/validator carry the agentic + fact-check load, so they get the stronger model.",
+    "_comment": "Outer stays on a strong Anthropic model via the regular account. User sim and Validator run GLM over OpenRouter. NOTE: validator verdicts freeze permanently into the regression label store — hand-spot-check the first batch of labels after the initial live record (cli.py validate --refetch re-judges if needed).",
     "user": "z-ai/glm-5.2",
     "inner": "claude-sonnet-5",
     "validator": "z-ai/glm-5.2",
@@ -32,7 +47,7 @@
   },
 
   "actor_providers": {
-    "_comment": "Which provider each actor runs on. Default is 'anthropic'. Keep the strategic Outer (edit proposer) on a strong Anthropic model via your regular account; route the cheap, high-volume actors (user/inner/validator/importer) at open-weights providers to cut cost. When you move an actor to a preset, set models.<actor> to a model that preset serves.",
+    "_comment": "Which provider each actor runs on. Default is 'anthropic'. Keep the strategic Outer (edit proposer) on a strong Anthropic model via your regular account; route the cheap, high-volume actors (user/validator) at open-weights providers to cut cost. When you move an actor to a preset, set models.<actor> to a model that preset serves.",
     "user": "openrouter",
     "inner": "anthropic",
     "validator": "openrouter",
@@ -68,9 +83,12 @@
       "duplicate_candidate"
     ],
     "compare": {
+      "_comment": "parsimony_*: an edit that shrinks the skill's .md text >= parsimony_min_shrink_pct while the composite stays within parsimony_composite_tolerance of baseline (and nothing else objects) is accepted — a smaller skill at the same quality is strictly better. Calibrate both against the measured suite noise floor (run the baseline suite twice) before trusting marginal accepts.",
       "min_composite_delta": 1.0,
       "component_regression_tolerance": 2.0,
-      "regression_set_tolerance": 0
+      "regression_set_tolerance": 0,
+      "parsimony_min_shrink_pct": 5.0,
+      "parsimony_composite_tolerance": 1.0
     }
   },
 

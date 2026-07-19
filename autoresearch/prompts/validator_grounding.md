@@ -7,6 +7,15 @@ The role's hard requirements (must-haves):
 
 {must_haves}
 
+Location constraint:
+
+{location_requirement}
+
+Employers the recruiter excluded (candidates currently employed there must
+not appear; match the actual company, not coincidental substrings of its name):
+
+{excluded_orgs}
+
 The job description:
 
 ---JD---
@@ -39,15 +48,26 @@ and `sources` — the citation URLs the original agent said back its claims):
    profile, does this person meet every hard requirement above?
    - meets / unclear / violates. Use "violates" ONLY when evidence clearly
      shows a hard requirement is not met (wrong domain, explicitly too
-     junior, disqualifying employer, wrong location when the JD is strict) —
-     and then set confident=true with the evidence in notes. When you are
-     not sure, say "unclear" with confident=false.
+     junior, disqualifying background) — and then set confident=true with
+     the evidence in notes. When you are not sure, say "unclear" with
+     confident=false.
+5. Judge the LOCATION (in_location): given the location constraint above and
+   the fetched evidence, is this candidate actually within the required
+   region? yes / no / unknown. You know geography — judge the place, not the
+   string format. Answer "no" ONLY when evidence clearly places them outside
+   the region (then confident=true); "unknown" when the constraint is not
+   strict or the evidence doesn't settle it.
+6. Judge the EXCLUDED EMPLOYER (at_excluded_org): is this candidate CURRENTLY
+   employed at one of the excluded companies? Match the actual company — a
+   similarly named business is not a match, and a *former* employer does not
+   count. yes / no / unknown; answer "yes" ONLY with clear evidence of
+   current employment there (then confident=true).
 
 # Output
 
 Answer with ONE JSON object, nothing else:
 
-{"candidates": [{"key": "<copied unchanged>", "name": "<name>", "identity": "supported|unsupported|contradicted|unreachable", "claims_checked": <int>, "claims_supported": <int>, "claims_contradicted": <int>, "claims_unreachable": <int>, "must_haves": "meets|unclear|violates", "confident": true|false, "notes": "<one or two sentences citing the decisive evidence>"}]}
+{"candidates": [{"key": "<copied unchanged>", "name": "<name>", "identity": "supported|unsupported|contradicted|unreachable", "claims_checked": <int>, "claims_supported": <int>, "claims_contradicted": <int>, "claims_unreachable": <int>, "must_haves": "meets|unclear|violates", "in_location": "yes|no|unknown", "at_excluded_org": "yes|no|unknown", "confident": true|false, "notes": "<one or two sentences citing the decisive evidence>"}]}
 
 Every input candidate must appear exactly once, with its `key` copied
 unchanged. Do not add candidates. Do not write files.

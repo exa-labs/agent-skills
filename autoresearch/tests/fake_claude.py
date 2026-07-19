@@ -8,9 +8,14 @@ transcripts, session resume, JSON payload extraction — without a model or
 network.
 
 Env knobs:
-  FAKE_CANDIDATES_CSV  file the "inner agent" copies to cwd as candidates.csv
+  FAKE_CANDIDATES_CSV  file the "inner agent" copies to cwd as the output csv
+  FAKE_OUTPUT_CSV      output csv filename (default candidates.csv; the
+                       people-search profile expects people.csv)
   FAKE_INNER_NO_CSV    when set, the inner agent produces no csv (failure path)
   FAKE_CLAUDE_ERROR    when set, every call returns an is_error result
+  FAKE_USER_BAD_JSON_ONCE  path to a sentinel file: the first user-role call
+                       emits unparseable text and creates the file; later
+                       calls answer normally (exercises the one-shot retry)
 """
 import json
 import os
@@ -37,6 +42,10 @@ def parse_argv(argv):
         else:
             prompt = a
             i += 1
+    # the harness sends the prompt over stdin (real claude's variadic flags
+    # would swallow a trailing positional); positional stays as a fallback
+    if prompt is None and not sys.stdin.isatty():
+        prompt = sys.stdin.read()
     return flags, prompt or ""
 
 
@@ -52,6 +61,12 @@ def emit(flags, text, session_id=None, is_error=False):
 
 
 def user_role(flags, prompt):
+    sentinel = os.environ.get("FAKE_USER_BAD_JSON_ONCE")
+    if sentinel and not os.path.exists(sentinel):
+        with open(sentinel, "w") as f:
+            f.write("tripped")
+        emit(flags, 'reasoning without any valid {json here')
+        return
     if "survey_only: yes" in prompt:
         emit(flags, json.dumps({"action": "accept", "message": "",
                                 "ux": {"checkpoint_quality": 4, "clarity": 4,
@@ -74,10 +89,11 @@ def user_role(flags, prompt):
 
 def inner_role(flags, prompt):
     if "--resume" in flags:
+        out_csv = os.environ.get("FAKE_OUTPUT_CSV", "candidates.csv")
         if not os.environ.get("FAKE_INNER_NO_CSV"):
-            shutil.copy(os.environ["FAKE_CANDIDATES_CSV"], "candidates.csv")
-        emit(flags, "Done — wrote candidates.csv. Here is your final shortlist: "
-                    "3 verified candidates, ranked.", session_id=flags["--resume"])
+            shutil.copy(os.environ["FAKE_CANDIDATES_CSV"], out_csv)
+        emit(flags, f"Done — wrote {out_csv}. Here is your final shortlist: "
+                    "3 verified people, ranked.", session_id=flags["--resume"])
     else:
         emit(flags, "I read the skill and built a search plan (role, dimensions, "
                     "segments). Before I search: seniority band? location strictness? "
@@ -85,7 +101,9 @@ def inner_role(flags, prompt):
 
 
 def validator_role(flags, prompt):
-    start = prompt.find("[", prompt.find("The candidates to audit"))
+    # anchor works for both phrasings: "The candidates to audit" (candidate-
+    # sourcing) and "The people to audit" (people-search)
+    start = prompt.find("[", prompt.find("to audit"))
     end = prompt.find("\n# Method")
     batch = json.loads(prompt[start:prompt.rfind("]", start, end) + 1])
     out = [{"key": b["key"], "name": b["name"], "identity": "supported",
@@ -116,7 +134,7 @@ def main():
     if os.environ.get("FAKE_CLAUDE_ERROR"):
         emit(flags, os.environ["FAKE_CLAUDE_ERROR"], is_error=True)
         return
-    if "You are playing a RECRUITER" in prompt:
+    if "You are playing a RECRUITER" in prompt or "You are playing a REQUESTER" in prompt:
         user_role(flags, prompt)
     elif "skeptical fact-checker" in prompt:
         validator_role(flags, prompt)

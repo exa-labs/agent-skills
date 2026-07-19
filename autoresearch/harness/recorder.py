@@ -22,13 +22,15 @@ import os
 import re
 import shutil
 
-from .validator.deterministic import norm_li, norm_name
+from .validator.deterministic import candidate_key as _candidate_key
 
-_CAND_FIELD = re.compile(r"^structured\.candidates\[(\d+)\](?:\.|$)")
+# skills name their structured result list differently (candidate-sourcing:
+# `candidates`; people-search: `people`) — harvest either
+_CAND_FIELD = re.compile(r"^structured\.(?:candidates|people)\[(\d+)\](?:\.|$)")
+_LIST_KEYS = ("candidates", "people")
 
-
-def _candidate_key(c):
-    return norm_li(c.get("linkedinUrl")) or ("nm:" + norm_name(c.get("name")))
+# orchestrator session-state files, per skill (highest-fidelity source)
+_STATE_FILES = ("sourcing_state.json", "people_search_state.json")
 
 
 def _grounding_by_index(grounding):
@@ -62,7 +64,8 @@ def _harvest_body(body, pool, verdicts, seg_counter):
     """Pull candidates/verdicts out of one completed Exa run response body."""
     out = (body.get("output") or {})
     structured = out.get("structured") or {}
-    cands = structured.get("candidates")
+    cands = next((structured.get(k) for k in _LIST_KEYS
+                  if isinstance(structured.get(k), list)), None)
     if isinstance(cands, list) and cands:
         seg = f"seg{seg_counter[0]:02d}"
         seg_counter[0] += 1
@@ -170,12 +173,13 @@ def _dedup_pool(pool):
 def record_bundle(run_dir, fixtures_dir, scenario_id, recording_id, skill_ref):
     """Derive a fixture bundle from a finished live run. Returns the bundle
     dir, or None if nothing recordable was captured."""
-    state_path = os.path.join(run_dir, "outdir", "sourcing_state.json")
+    state_path = next((p for p in (os.path.join(run_dir, "outdir", n) for n in _STATE_FILES)
+                       if os.path.isfile(p)), None)
     log_path = os.path.join(run_dir, "exa_http.jsonl")
     transcripts = sorted(glob.glob(os.path.join(run_dir, "transcript*.jsonl")))
 
     pool, verdicts, source = [], {}, None
-    if os.path.isfile(state_path):
+    if state_path:
         pool, verdicts = _from_state(state_path)
         source = "sourcing_state"
     if not pool and os.path.isfile(log_path):
@@ -199,7 +203,7 @@ def record_bundle(run_dir, fixtures_dir, scenario_id, recording_id, skill_ref):
                    "skill_ref": skill_ref, "source": source,
                    "candidates": len(pool), "verdicts": len(verdicts)}, f, indent=2)
     for p in (state_path, log_path):
-        if os.path.isfile(p):
+        if p and os.path.isfile(p):
             shutil.copy(p, os.path.join(bundle, "raw", os.path.basename(p)))
     return bundle
 
@@ -223,14 +227,14 @@ def prepare_replay(bundle_dir, outdir):
         f.write(
             "# Frozen Exa run outputs (replay session)\n\n"
             "Live search is disabled. These files are the raw outputs of the\n"
-            "already-executed Exa Agent runs for this job description:\n\n"
-            "- `pool.json` — every candidate returned by the discovery runs, exactly\n"
-            "  as the API returned them. `_segment` is the talent segment the\n"
-            "  candidate came from; `_sources` are the grounding citation URLs for\n"
-            "  that candidate's claims.\n"
+            "already-executed Exa Agent runs for this brief:\n\n"
+            "- `pool.json` — every person returned by the discovery runs, exactly\n"
+            "  as the API returned them. `_segment` is the search segment the\n"
+            "  person came from; `_sources` are the grounding citation URLs for\n"
+            "  that person's claims.\n"
             "- `verify_verdicts.json` — the verification pass's verdicts, keyed by\n"
-            "  candidate dedup key (linkedin slug `li:<slug>`, else `nm:<name>`).\n"
-            "  A candidate absent from this map is `unchecked`.\n")
+            "  dedup key (linkedin slug `li:<slug>`, else profile url `url:<url>`,\n"
+            "  else `nm:<name>`). A person absent from this map is `unchecked`.\n")
     return target
 
 

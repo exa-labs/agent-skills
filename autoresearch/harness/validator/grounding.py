@@ -13,12 +13,20 @@ labels are out of sync — surfaced as `unlabeled`, never silently passed.
 Verdict shape per candidate:
   {"key", "name", "identity": supported|unsupported|contradicted|unreachable,
    "claims_checked", "claims_supported", "claims_contradicted", "claims_unreachable",
-   "must_haves": meets|unclear|violates, "confident": bool, "notes"}
+   "must_haves": meets|unclear|violates,
+   "in_location": yes|no|unknown, "at_excluded_org": yes|no|unknown,
+   "confident": bool, "notes"}
 
 A `contradicted` identity becomes a fabricated_identity violation; a
 *confident* must-have `violates` becomes a must_have_violation. An unconfident
 "violates" is downgraded to `unclear` so a noisy judge can't flip hard gates
 run to run.
+
+in_location / at_excluded_org are the ADJUDICATED semantic constraint calls —
+regex tripwires in deterministic.py only mark rows `*_suspected`; the gated
+excluded_employer_leak / location_violation types come from here, where the
+judge has fetched the person's actual sources. Same noise guard: "no" /
+"yes-at-excluded" only count when confident, else downgraded to unknown.
 """
 import json
 
@@ -37,31 +45,47 @@ def _claim_rows(rows, max_sources):
     out = []
     for r in rows:
         sources = [s.strip() for s in (r.get("sources") or "").split("|") if s.strip()]
-        out.append({
+        claim = {
             "key": candidate_key(r),
             "name": r.get("name"),
-            "claimed_title": r.get("currentTitle"),
-            "claimed_company": r.get("currentCompany"),
+            # column names differ per skill (candidate-sourcing vs people-search)
+            "claimed_title": r.get("currentTitle") or r.get("currentRole"),
+            "claimed_company": r.get("currentCompany") or r.get("currentAffiliation"),
             "claimed_location": r.get("location"),
             "linkedin_url": r.get("linkedinUrl"),
             "sources": sources[:max_sources],
-        })
+        }
+        if r.get("profileUrl"):
+            claim["profile_url"] = r.get("profileUrl")
+        out.append(claim)
     return out
 
 
 def check_grounding_live(rows, scenario, config, run_dir):
     """Fact-check candidates in batches with the Validator LLM. Returns
     (verdicts_by_key, total_cost_usd)."""
-    with open(config.path("prompts") + "/validator_grounding.md") as f:
+    with open(config.prompt_path("validator_grounding.md")) as f:
         template = f.read()
     max_src = config.limit("grounding_max_sources_per_candidate")
     cap = config.limit("grounding_max_candidates")
     rows = rows[:cap]
     verdicts, cost = {}, 0.0
+    loc_cfg = scenario.expectations.get("location") or {}
+    location_requirement = (
+        "The location constraint is STRICT. A person is in-bounds only if their "
+        "actual location satisfies the brief's stated region (see the brief; "
+        f"unknown-location is {'tolerated' if loc_cfg.get('allow_unknown') else 'NOT tolerated'})."
+        if loc_cfg.get("strict") else
+        "There is no strict location constraint — answer in_location: \"unknown\" for everyone.")
+    excluded_orgs = scenario.expectations.get("exclude_employer_terms", [])
+    excluded_orgs_txt = (json.dumps(excluded_orgs) if excluded_orgs
+                         else "(none — answer at_excluded_org: \"unknown\" for everyone)")
     for i in range(0, len(rows), BATCH):
         batch = _claim_rows(rows[i:i + BATCH], max_src)
         prompt = render(template,
                         must_haves=json.dumps(scenario.expectations.get("must_haves_semantic", []), indent=2),
+                        location_requirement=location_requirement,
+                        excluded_orgs=excluded_orgs_txt,
                         jd=scenario.jd,
                         batch=json.dumps(batch, indent=2))
         res = run_claude(prompt,
@@ -93,7 +117,8 @@ def _error_verdict(claim_row, note):
     return {"key": claim_row["key"], "name": claim_row["name"],
             "identity": "unreachable", "claims_checked": 0, "claims_supported": 0,
             "claims_contradicted": 0, "claims_unreachable": 0,
-            "must_haves": "unclear", "confident": False, "notes": note}
+            "must_haves": "unclear", "in_location": "unknown",
+            "at_excluded_org": "unknown", "confident": False, "notes": note}
 
 
 def _sanitize(v):
@@ -107,6 +132,16 @@ def _sanitize(v):
     if mh == "violates" and not confident:
         mh = "unclear"
     out["must_haves"], out["confident"] = mh, confident
+    # adjudicated semantic constraints; the incriminating answers only count
+    # when the judge is confident, mirroring the must-have noise guard
+    loc = v.get("in_location") if v.get("in_location") in ("yes", "no", "unknown") else "unknown"
+    if loc == "no" and not confident:
+        loc = "unknown"
+    org = (v.get("at_excluded_org")
+           if v.get("at_excluded_org") in ("yes", "no", "unknown") else "unknown")
+    if org == "yes" and not confident:
+        org = "unknown"
+    out["in_location"], out["at_excluded_org"] = loc, org
     out["notes"] = str(v.get("notes") or "")[:500]
     return out
 
@@ -130,14 +165,20 @@ def join_labels(rows, labels_by_key):
                        "identity": "contradicted" if bad else "supported",
                        "claims_checked": 0, "claims_supported": 0,
                        "claims_contradicted": 0, "claims_unreachable": 0,
-                       "must_haves": "unclear", "confident": True,
+                       "must_haves": "unclear", "in_location": "unknown",
+                       "at_excluded_org": "unknown", "confident": True,
                        "notes": f"human label: {label.get('notes') or label.get('label')}"}
         verdicts[key] = verdict
     return verdicts, unlabeled
 
 
 def grounding_violations(rows, verdicts):
-    """Convert verdicts into scorecard violations (same shape as deterministic)."""
+    """Convert verdicts into scorecard violations (same shape as deterministic).
+
+    This is where the GATED semantic constraint types come from: the judge
+    fetched the person's sources, so a confident in_location='no' /
+    at_excluded_org='yes' is an adjudicated violation — unlike the regex
+    tripwires in deterministic.py, which only mark rows `*_suspected`."""
     violations = []
     for r in rows:
         v = verdicts.get(candidate_key(r))
@@ -151,6 +192,14 @@ def grounding_violations(rows, verdicts):
             violations.append({"type": "must_have_violation", "rank": r.get("rank"),
                                "name": r.get("name"),
                                "detail": f"evidence shows a must-have is not met: {v['notes']}"})
+        if v.get("in_location") == "no":
+            violations.append({"type": "location_violation", "rank": r.get("rank"),
+                               "name": r.get("name"),
+                               "detail": f"adjudicated outside the required region: {v['notes']}"})
+        if v.get("at_excluded_org") == "yes":
+            violations.append({"type": "excluded_employer_leak", "rank": r.get("rank"),
+                               "name": r.get("name"),
+                               "detail": f"adjudicated currently at an excluded org: {v['notes']}"})
     return violations
 
 

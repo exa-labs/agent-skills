@@ -13,6 +13,10 @@ class TestRegressionStore(unittest.TestCase):
         self.path = os.path.join(tempfile.mkdtemp(), "labeled.jsonl")
 
     def test_auto_labels_from_verdicts(self):
+        # labels follow IDENTITY only: a must-have miss (li:miss) is a
+        # property of that run's row, not of the person — the person labels
+        # valid so future runs including them aren't permanent regression
+        # hits, while the kept verdict still carries the miss into replay
         verdicts = {
             "li:good": {"name": "Good Person", "identity": "supported",
                         "must_haves": "meets"},
@@ -24,7 +28,9 @@ class TestRegressionStore(unittest.TestCase):
         entries = auto_label_from_verdicts("t001", verdicts, "run-1")
         by_key = {e["key"]: e["label"] for e in entries}
         self.assertEqual(by_key, {"li:good": "valid", "li:fake": "violation",
-                                  "li:miss": "violation"})
+                                  "li:miss": "valid"})
+        miss = next(e for e in entries if e["key"] == "li:miss")
+        self.assertEqual(miss["verdict"]["must_haves"], "violates")
 
     def test_unchecked_candidates_get_no_label(self):
         # unreachable/unsupported = the validator never established anything;

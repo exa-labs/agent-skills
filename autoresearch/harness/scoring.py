@@ -23,7 +23,10 @@ least min_composite_delta.
 def _violating_candidates(scorecard):
     keys = set()
     for v in scorecard["violations"]:
-        if v["type"] == "malformed_output":
+        # *_suspected types are regex tripwires awaiting adjudication by the
+        # grounding validator — reported on the scorecard, but a substring
+        # match is not evidence, so they neither gate nor cost score
+        if v["type"] == "malformed_output" or v["type"].endswith("_suspected"):
             continue
         keys.add((v.get("rank"), v.get("name")))
     return keys
@@ -110,9 +113,14 @@ def suite_score(scorecards, scoring_cfg):
             "scenario_count": len(per_run)}
 
 
-def compare(baseline, candidate, scoring_cfg):
+def compare(baseline, candidate, scoring_cfg, baseline_size=None, candidate_size=None):
     """Promotion rule. Returns {"verdict": "accept"|"reject", "reasons": [...],
-    "deltas": {...}}."""
+    "deltas": {...}, "accepted_on": None|"improvement"|"gate_fix"|"parsimony"}.
+
+    baseline_size/candidate_size are the suites' skill_size dicts (see
+    workspace.skill_size). When both are present, a parsimony path opens: a
+    smaller skill that holds quality is accepted even with a flat composite —
+    a smaller skill at the same output quality is strictly better."""
     cmp_cfg = scoring_cfg["compare"]
     reasons = []
 
@@ -137,17 +145,34 @@ def compare(baseline, candidate, scoring_cfg):
 
     composite_delta = round(candidate["composite"] - baseline["composite"], 2)
     deltas["composite"] = composite_delta
+    shortfall = (f"composite delta {composite_delta} below required "
+                 f"{cmp_cfg['min_composite_delta']}")
     if not reasons and composite_delta < cmp_cfg["min_composite_delta"]:
-        reasons.append(
-            f"composite delta {composite_delta} below required {cmp_cfg['min_composite_delta']}")
+        reasons.append(shortfall)
+
+    accepted_on = "improvement" if not reasons else None
 
     fixed_gates = base_fails - cand_fails
     # An edit that fixes a gate failure without introducing any problem is a
     # win even if the composite barely moves.
-    if reasons == [f"composite delta {composite_delta} below required "
-                   f"{cmp_cfg['min_composite_delta']}"] and fixed_gates and composite_delta >= 0:
-        reasons = []
+    if reasons == [shortfall] and fixed_gates and composite_delta >= 0:
+        reasons, accepted_on = [], "gate_fix"
+
+    # Parsimony: a smaller skill that holds quality is strictly better. Opens
+    # only when the sole objection is the composite shortfall (so no new gate
+    # failures, no component regressions, no regression hits), the skill's
+    # instruction text shrank meaningfully, and the composite didn't actually
+    # drop beyond the noise tolerance.
+    if baseline_size and candidate_size and baseline_size.get("chars"):
+        shrink_pct = round(100.0 * (baseline_size["chars"] - candidate_size["chars"])
+                           / baseline_size["chars"], 2)
+        deltas["skill_shrink_pct"] = shrink_pct
+        if (reasons == [shortfall]
+                and shrink_pct >= cmp_cfg.get("parsimony_min_shrink_pct", 5.0)
+                and composite_delta >= -cmp_cfg.get("parsimony_composite_tolerance", 1.0)):
+            reasons, accepted_on = [], "parsimony"
 
     return {"verdict": "reject" if reasons else "accept",
             "reasons": reasons, "deltas": deltas,
+            "accepted_on": accepted_on,
             "fixed_gate_failures": sorted(fixed_gates)}

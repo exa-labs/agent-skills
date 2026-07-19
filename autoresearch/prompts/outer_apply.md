@@ -1,4 +1,4 @@
-You are an editor agent working inside a checkout of the exa-candidate-sourcing
+You are an editor agent working inside a checkout of the {skill_name}
 skill repository (the current directory). Apply ONE change, exactly as
 specified, and nothing else.
 

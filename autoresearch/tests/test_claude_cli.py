@@ -57,6 +57,41 @@ class TestClaudeCli(unittest.TestCase):
         with self.assertRaises(ClaudeError):
             ClaudeResult("no json here", None, 0, [], True).json_payload()
 
+    def test_json_payload_survives_stray_braces_and_multiple_objects(self):
+        # a first-{-to-last-} slice would splice these into invalid JSON
+        # (the s004 live-run killer); the scanner must skip the prose brace
+        # and multiple objects resolve to the last (models answer at the end)
+        prose = ClaudeResult('think {step one} then {"action": "continue"}',
+                             None, 0, [], True)
+        self.assertEqual(prose.json_payload(), {"action": "continue"})
+        multi = ClaudeResult('plan: {"draft": true}\nfinal: {"action": "accept"}',
+                             None, 0, [], True)
+        self.assertEqual(multi.json_payload(), {"action": "accept"})
+        fence_wins = ClaudeResult('{"outside": 1}\n```json\n{"inside": 2}\n```',
+                                  None, 0, [], True)
+        self.assertEqual(fence_wins.json_payload(), {"inside": 2})
+
+    def test_empty_result_falls_back_to_assistant_text_blocks(self):
+        # Proxied reasoning models (GLM via OpenRouter) can order thinking
+        # blocks AFTER the text block; the CLI then leaves result empty even
+        # though the text survived in the assistant event.
+        stub = os.path.join(self.tmp, "empty_result.py")
+        with open(stub, "w") as f:
+            f.write(
+                "#!/usr/bin/env python3\n"
+                "import json\n"
+                "print(json.dumps({'type': 'assistant', 'message': {'content': [\n"
+                "  {'type': 'text', 'text': '{\"action\": \"continue\"}'},\n"
+                "  {'type': 'thinking', 'thinking': 'reasoning after text'},\n"
+                "  {'type': 'redacted_thinking', 'data': 'x'}]}}))\n"
+                "print(json.dumps({'type': 'result', 'result': '', 'session_id': 's',\n"
+                "                  'total_cost_usd': 0.1, 'is_error': False}))\n")
+        os.chmod(stub, 0o755)
+        os.environ["PIPELINE_CLAUDE_BIN"] = stub
+        res = run_claude("hi", model="m", cwd=self.tmp, timeout_s=30)
+        self.assertTrue(res.ok)
+        self.assertEqual(res.json_payload(), {"action": "continue"})
+
     def test_is_error_result_is_not_ok(self):
         os.environ["FAKE_CLAUDE_ERROR"] = "credit balance too low"
         self.addCleanup(os.environ.pop, "FAKE_CLAUDE_ERROR", None)

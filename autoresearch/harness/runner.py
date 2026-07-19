@@ -8,7 +8,7 @@ from .recorder import latest_bundle, record_bundle
 from .scenario import get_scenario, list_scenarios
 from .scoring import suite_score
 from .session import run_session, validate_run
-from .workspace import Workspace
+from .workspace import Workspace, skill_size
 
 
 def _safe(ref):
@@ -27,10 +27,15 @@ def run_one(config, scenario_id, ref, mode, run_id=None, record=False):
     bundle = latest_bundle(config.path("fixtures"), scenario_id) if mode == "replay" else None
     info = run_session(config, scenario, skill_dir, ref, mode, run_id, bundle_dir=bundle)
 
-    if record and mode == "live":
+    # Only completed sessions may freeze fixtures — a partial pool from an
+    # aborted run would silently become replay truth. recording_id must stay
+    # flat: suite run_ids contain a slash (<suite_id>/<scenario>), which would
+    # nest the bundle one level below where latest_bundle() looks.
+    info["fixture_bundle"] = None
+    if record and mode == "live" and info.get("completed"):
         run_dir = os.path.join(config.path("runs"), run_id)
         recorded = record_bundle(run_dir, config.path("fixtures"), scenario_id,
-                                 recording_id=run_id, skill_ref=ref)
+                                 recording_id=_safe(run_id), skill_ref=ref)
         info["fixture_bundle"] = recorded
 
     scorecard = validate_run(config, scenario, run_id, info)
@@ -71,6 +76,9 @@ def run_suite(config, ref, mode, scenario_ids=None, record=False):
     result = {
         "suite_id": suite_id, "skill": config["skill"]["name"],
         "ref": ref, "head": head, "mode": mode,
+        # instruction-text mass of the skill at this ref — the parsimony
+        # rule in scoring.compare() reads this off both suites
+        "skill_size": skill_size(ws.skill_dir),
         "score": suite_score(scorecards, config["scoring"]),
         "scorecard_runs": [sc["run_id"] for sc in scorecards],
         "skipped": skipped,

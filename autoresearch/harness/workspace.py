@@ -20,6 +20,25 @@ class GitError(Exception):
     pass
 
 
+def skill_size(skill_dir):
+    """Text mass of the skill as the Inner LLM reads it: every .md file under
+    the skill dir (SKILL.md, references/, prompt files). Code is deliberately
+    excluded — the parsimony pressure is on instruction text, and pushing
+    verbosity into .py files doesn't add context cost for the Inner."""
+    chars = words = files = 0
+    for root, dirs, names in os.walk(skill_dir):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules")]
+        for name in names:
+            if not name.endswith(".md"):
+                continue
+            with open(os.path.join(root, name), encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            chars += len(text)
+            words += len(text.split())
+            files += 1
+    return {"chars": chars, "words": words, "md_files": files}
+
+
 class PromotionConflict(GitError):
     """The winner branch doesn't merge cleanly into the promotion branch;
     needs a human merge. The clone is left clean, not mid-conflict."""
@@ -100,6 +119,11 @@ class Workspace:
         if self.skill_subpath:
             args += ["--", self.skill_subpath]
         return _git(self.clone_dir, *args)
+
+    def changed_files(self, base_ref, ref=None):
+        """Paths (repo-root-relative) an experiment changed vs its base."""
+        out = _git(self.clone_dir, "diff", "--name-only", f"{base_ref}...{ref or 'HEAD'}")
+        return [line for line in out.splitlines() if line.strip()]
 
     def branch_exists(self, branch):
         return subprocess.run(["git", "-C", self.clone_dir, "rev-parse", "--verify",

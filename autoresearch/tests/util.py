@@ -71,6 +71,50 @@ VERIFY_VERDICTS = {
                        "exists": "confirmed", "matches_role": "partial"},
 }
 
+# -- the same story in the exa-people-search output contract ------------------
+# (people.csv columns; Cara has no LinkedIn, exercising the url: key fallback)
+
+PEOPLE_CSV_COLUMNS = ["rank", "name", "linkedinUrl", "profileUrl", "currentRole",
+                      "currentAffiliation", "location", "score", "overall_tier",
+                      "confidence", "backendDepth", "concerns", "verify_exists",
+                      "verify_match", "sources"]
+
+PEOPLE_CLEAN_ROWS = [
+    ["1", "Alice Warden", "https://linkedin.com/in/alice-warden", "",
+     "Staff Engineer", "Streamline Ltd", "London, UK", "91", "strong", "high",
+     "strong", "", "confirmed", "strong",
+     "https://example.com/alice | https://example.com/alice2"],
+    ["2", "Bob Trellis", "https://linkedin.com/in/bob-trellis", "",
+     "Senior Engineer", "Datagrove", "Greater London", "84", "strong", "medium",
+     "strong", "", "confirmed", "partial", "https://example.com/bob"],
+    ["3", "Cara Mott", "", "https://github.com/cara-mott",
+     "Backend Lead", "Finchline", "London", "78", "moderate", "medium",
+     "partial", "thin public footprint", "likely", "partial",
+     "https://example.com/cara"],
+]
+
+PEOPLE_POOL = [
+    {"name": "Alice Warden", "linkedinUrl": "https://linkedin.com/in/alice-warden",
+     "profileUrl": None, "currentRole": "Staff Engineer",
+     "currentAffiliation": "Streamline Ltd", "location": "London, UK",
+     "_segment": "seg01", "_sources": ["https://example.com/alice"]},
+    {"name": "Bob Trellis", "linkedinUrl": "https://linkedin.com/in/bob-trellis",
+     "profileUrl": None, "currentRole": "Senior Engineer",
+     "currentAffiliation": "Datagrove", "location": "Greater London",
+     "_segment": "seg01", "_sources": ["https://example.com/bob"]},
+    {"name": "Cara Mott", "linkedinUrl": None,
+     "profileUrl": "https://github.com/cara-mott", "currentRole": "Backend Lead",
+     "currentAffiliation": "Finchline", "location": "London",
+     "_segment": "seg02", "_sources": ["https://example.com/cara"]},
+]
+
+PEOPLE_VERIFY_VERDICTS = {
+    "li:alice-warden": {"id": "li:alice-warden", "name": "Alice Warden",
+                        "exists": "confirmed", "matches_criteria": "strong"},
+    "li:bob-trellis": {"id": "li:bob-trellis", "name": "Bob Trellis",
+                       "exists": "confirmed", "matches_criteria": "partial"},
+}
+
 
 def write_csv(path, rows, columns=None):
     with open(path, "w", newline="") as f:
@@ -95,20 +139,27 @@ def make_skill_repo(path, subpath=""):
     return path
 
 
-def make_pipeline(tmp):
+def make_pipeline(tmp, skill_name="exa-candidate-sourcing"):
     """A full temp pipeline dir wired to fake_claude and a temp skill repo.
     Directories come from the resolved config paths, so the per-skill
-    ({skill}) layout is exercised exactly as production uses it."""
+    ({skill}) layout is exercised exactly as production uses it.
+
+    The skill is pinned (default: candidate-sourcing) rather than read from
+    the production config, so these tests keep their fixture shapes no matter
+    which skill the production config currently targets; pass
+    skill_name="exa-people-search" for the people-search contract."""
     pdir = os.path.join(tmp, "pipeline")
     os.makedirs(pdir)
     shutil.copytree(os.path.join(PIPELINE_DIR, "prompts"), os.path.join(pdir, "prompts"))
 
     with open(os.path.join(PIPELINE_DIR, "config.json")) as f:
         cfg = json.load(f)
+    cfg["skill"]["name"] = skill_name
+    cfg["skill"]["path"] = "skills/" + skill_name
     # exercise the real skill.path (monorepo subdir) against a temp repo whose
     # default branch is main, so base_ref must be overridden to match.
     skill_repo = make_skill_repo(os.path.join(tmp, "skill-repo"),
-                                 cfg["skill"].get("path", ""))
+                                 cfg["skill"]["path"])
     cfg["skill"]["repo"] = skill_repo
     cfg["skill"]["base_ref"] = "main"
     # Orchestration tests run every actor through the stub claude; keep them
@@ -127,15 +178,21 @@ def make_pipeline(tmp):
     for key in ("suite", "inbox", "fixtures", "runs", "workspace"):
         os.makedirs(config.path(key), exist_ok=True)
 
+    people = skill_name == "exa-people-search"
     sdir = os.path.join(config.path("suite"), "t001-test-role")
     os.makedirs(sdir)
     with open(os.path.join(sdir, "scenario.json"), "w") as f:
         json.dump({"id": "t001", "title": "test role", "target_count": 3,
                    "status": "ready"}, f)
     with open(os.path.join(sdir, "jd.md"), "w") as f:
-        f.write("# Senior Backend Engineer (London)\n5+ years backend. London based.\n")
+        f.write("# Backend experts (London)\n5+ years backend. London based.\n"
+                if people else
+                "# Senior Backend Engineer (London)\n5+ years backend. London based.\n")
     with open(os.path.join(sdir, "persona.md"), "w") as f:
-        f.write("You are a recruiter at Finflow. Location London is hard. "
+        f.write("You are a conference organizer at Finflow. Location London is "
+                "hard. Exclude BigCorp employees. Accept when a ranked list arrives.\n"
+                if people else
+                "You are a recruiter at Finflow. Location London is hard. "
                 "Exclude BigCorp employees. Accept when a ranked list arrives.\n")
     with open(os.path.join(sdir, "expectations.json"), "w") as f:
         json.dump(EXPECTATIONS, f)
@@ -143,9 +200,9 @@ def make_pipeline(tmp):
     bundle = os.path.join(config.path("fixtures"), "t001", "rec-001")
     os.makedirs(os.path.join(bundle, "raw"))
     with open(os.path.join(bundle, "pool.json"), "w") as f:
-        json.dump(POOL, f)
+        json.dump(PEOPLE_POOL if people else POOL, f)
     with open(os.path.join(bundle, "verify_verdicts.json"), "w") as f:
-        json.dump(VERIFY_VERDICTS, f)
+        json.dump(PEOPLE_VERIFY_VERDICTS if people else VERIFY_VERDICTS, f)
     with open(os.path.join(bundle, "meta.json"), "w") as f:
         json.dump({"scenario": "t001", "recording_id": "rec-001",
                    "skill_ref": "main", "source": "test"}, f)
@@ -153,8 +210,9 @@ def make_pipeline(tmp):
     return config
 
 
-def fake_claude_env(candidates_csv):
+def fake_claude_env(candidates_csv, output_csv="candidates.csv"):
     env = {"PIPELINE_CLAUDE_BIN": FAKE_CLAUDE,
-           "FAKE_CANDIDATES_CSV": candidates_csv}
+           "FAKE_CANDIDATES_CSV": candidates_csv,
+           "FAKE_OUTPUT_CSV": output_csv}
     env.update(GIT_ENV)
     return env

@@ -30,10 +30,15 @@ class TestDeterministic(unittest.TestCase):
         result = check_run(os.path.join(self.tmp, "nope.csv"), EXPECTATIONS)
         self.assertEqual(types(result), ["malformed_output"])
 
-    def test_excluded_employer_leak(self):
+    def test_excluded_employer_is_suspected_not_gated(self):
+        # substring matching cannot disambiguate org names ("citadel" matches
+        # Citadel Federal Credit Union) — it trips a suspected flag for the
+        # grounding validator to adjudicate, never a gated violation
         row = list(CLEAN_ROWS[0])
         row[4] = "BigCorp Cloud Division"
-        self.assertIn("excluded_employer_leak", types(self._check([row])))
+        result = self._check([row])
+        self.assertIn("excluded_employer_suspected", types(result))
+        self.assertNotIn("excluded_employer_leak", types(result))
 
     def test_excluded_person_leak(self):
         row = list(CLEAN_ROWS[0])
@@ -52,11 +57,16 @@ class TestDeterministic(unittest.TestCase):
         result = self._check([bad_name, bad_url])
         self.assertEqual([v["type"] for v in result["violations"]].count("fabricated_identity"), 2)
 
-    def test_location_violation_strict(self):
+    def test_location_strict_splits_by_precision(self):
+        # a non-matching location STRING is only suspected (regexes don't know
+        # geography); a MISSING location under a strict constraint is the
+        # run's own defect and stays gate-eligible
         elsewhere = list(CLEAN_ROWS[0]); elsewhere[5] = "Berlin, Germany"
         unknown = list(CLEAN_ROWS[1]); unknown[5] = ""
         result = self._check([elsewhere, unknown])
-        self.assertEqual([v["type"] for v in result["violations"]].count("location_violation"), 2)
+        by_type = [v["type"] for v in result["violations"]]
+        self.assertEqual(by_type.count("location_suspected"), 1)
+        self.assertEqual(by_type.count("location_violation"), 1)
 
     def test_location_not_strict_passes(self):
         row = list(CLEAN_ROWS[0]); row[5] = "Berlin, Germany"

@@ -1,6 +1,6 @@
-You are the optimizer for a candidate-sourcing skill. The skill is evaluated
-by a harness: simulated recruiters run it on a suite of job descriptions, a
-validator scores every run for constraint violations (excluded employers,
+You are the optimizer for the `{skill_name}` skill. The skill is evaluated
+by a harness: simulated requesters run it on a suite of briefs, a
+validator scores every run for constraint violations (excluded organizations,
 locations, must-haves, fabricated identities, duplicates), grounded factual
 support, delivery, and UX. Your edits are kept only if the WHOLE suite score
 improves with no component regression and no new hard-gate failure.
@@ -25,7 +25,20 @@ Propose exactly {k} DISTINCT edits to the skill, ordered by expected impact.
 Good proposals attack the scored failure modes visible in the dossier:
 hard-gate violations first (these are deterministic bugs — prefer adding
 explicit hard gates/checks to the skill's steps over softer prompt nudges),
-then ungrounded claims, then UX friction. Each proposal must be:
+then ungrounded claims, then UX friction.
+
+Parsimony is a scored dimension: the dossier's `skill_size` tracks the
+skill's instruction-text mass, and a smaller skill at the same output
+quality is strictly better — added text costs context, dilutes the rules
+that matter, and compounds round over round. So: prefer edits that REPLACE
+or TIGHTEN existing text over edits that add; every sentence you add must
+pay rent against a scored failure mode. When {k} > 1, make the FINAL
+proposal a pure compression edit: merge redundant instructions, delete
+rules no scorecard has ever exercised, tighten prose — with NO intended
+behavior change (the suite verifies that empirically; a compression that
+holds quality is accepted on size alone).
+
+Each proposal must be:
 
 - Self-contained: one coherent change, applicable independently of the others.
 - Concrete: name the exact sections/files of the skill to change and what the

@@ -52,16 +52,21 @@ def labels_for_scenario(labels, scenario_id):
 
 
 def auto_label_from_verdicts(scenario_id, verdicts_by_key, run_id):
-    """Turn grounding verdicts into auto labels. `violation` when sources
-    contradict the identity or confidently show a must-have miss; `valid` only
-    when the identity was positively supported (full verdict kept, so replay
-    joins reproduce the exact grounding stats). A candidate the validator
-    couldn't actually check (unreachable sources, errored batch, unsupported)
-    gets NO label — freezing it as valid would poison the regression set with
-    false negatives it could never recover from."""
+    """Turn grounding verdicts into auto labels, by IDENTITY only. `violation`
+    when sources contradict who the person is; `valid` when the identity was
+    positively supported (full verdict kept, so replay joins reproduce the
+    exact grounding stats — including any must-have miss, which keeps gating
+    the runs it appears in). A must-have miss alone never freezes as a
+    violation: it is often a property of one run's deliverable (a row missing
+    an email), not of the person, and freezing it would turn every future
+    appearance of a legitimate candidate into a permanent regression hit. A
+    candidate the validator couldn't actually check (unreachable sources,
+    errored batch, unsupported) gets NO label — freezing it as valid would
+    poison the regression set with false negatives it could never recover
+    from."""
     entries = []
     for key, v in verdicts_by_key.items():
-        if v.get("identity") == "contradicted" or v.get("must_haves") == "violates":
+        if v.get("identity") == "contradicted":
             label = "violation"
         elif v.get("identity") == "supported":
             label = "valid"

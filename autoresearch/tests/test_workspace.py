@@ -5,7 +5,7 @@ import unittest
 
 from util import GIT_ENV, make_skill_repo
 
-from harness.workspace import PromotionConflict, Workspace
+from harness.workspace import PromotionConflict, Workspace, skill_size
 
 
 def commit_in(repo, filename, content, message):
@@ -48,6 +48,31 @@ class TestWorkspace(unittest.TestCase):
     def test_commit_all_with_no_changes_returns_none(self):
         self.ws.checkout("main")
         self.assertIsNone(self.ws.commit_all("noop"))
+
+    def test_changed_files_lists_experiment_paths(self):
+        clone = self.ws.checkout("main")
+        self.ws.create_branch("exp/002-files", "main")
+        os.makedirs(os.path.join(clone, "orchestrator"), exist_ok=True)
+        with open(os.path.join(clone, "orchestrator", "search.py"), "w") as f:
+            f.write("# new\n")
+        with open(os.path.join(clone, "SKILL.md"), "a") as f:
+            f.write("\nedited\n")
+        self.ws.commit_all("exp: two files")
+        self.assertEqual(sorted(self.ws.changed_files("main")),
+                         ["SKILL.md", "orchestrator/search.py"])
+
+    def test_skill_size_counts_md_text_only(self):
+        clone = self.ws.checkout("main")
+        with open(os.path.join(clone, "big_module.py"), "w") as f:
+            f.write("x = 1\n" * 500)  # code must not count
+        base = skill_size(clone)
+        self.assertGreater(base["chars"], 0)
+        self.assertEqual(base["md_files"], 1)  # only SKILL.md
+        with open(os.path.join(clone, "extra.md"), "w") as f:
+            f.write("ten more words " * 10)
+        grown = skill_size(clone)
+        self.assertEqual(grown["md_files"], 2)
+        self.assertGreater(grown["chars"], base["chars"])
 
     def test_checkout_discards_dirt(self):
         clone = self.ws.checkout("main")

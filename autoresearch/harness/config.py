@@ -5,6 +5,34 @@ import re
 
 PIPELINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# The skill profile: everything the harness must know about the TARGET
+# skill's output contract. Keys absent from a config profile fall back to
+# these values (the original exa-candidate-sourcing contract), so a config
+# with no `profiles` block behaves exactly as before.
+DEFAULT_PROFILE = {
+    # the final deliverable the Inner agent must write into its run dir
+    "output_csv": "candidates.csv",
+    "viewer_html": "candidates.html",
+    # columns that must exist in the output CSV (deterministic validator)
+    "base_columns": ["rank", "name", "linkedinUrl", "currentTitle",
+                     "currentCompany", "location", "score", "segment"],
+    # column checked against expectations.exclude_employer_terms
+    "org_column": "currentCompany",
+    # column holding the person's current title/role (grounding claims)
+    "title_column": "currentTitle",
+    # key in the Exa run's structured output that carries the result list
+    "structured_list_key": "candidates",
+    # orchestrator session-state file (recorder's highest-fidelity source)
+    "state_file": "sourcing_state.json",
+    # role label for the simulated user's messages in conversation.json —
+    # must match what the skill's user_llm.md prompt calls the user
+    "requester_role": "recruiter",
+    # skill paths (relative to the skill dir) that only execute in live runs;
+    # replay-mode experiments touching them are parked as needs_live because
+    # frozen fixtures cannot measure them (the orchestrator never runs in replay)
+    "live_only_paths": ["orchestrator/"],
+}
+
 
 class Config:
     def __init__(self, data, pipeline_dir=PIPELINE_DIR):
@@ -32,6 +60,28 @@ class Config:
         skills the pipeline targets."""
         rel = self.data["paths"][key].replace("{skill}", self.data["skill"]["name"])
         return os.path.normpath(os.path.join(self.pipeline_dir, rel))
+
+    @property
+    def profile(self):
+        """The active skill's output-contract profile: DEFAULT_PROFILE keys
+        overridden by config `profiles[skill.name]` (if present). This is how
+        the harness supports skills whose deliverable differs from
+        candidate-sourcing's candidates.csv (columns, list key, state file)
+        without forking the harness."""
+        overrides = self.data.get("profiles", {}).get(self.data["skill"]["name"], {})
+        merged = dict(DEFAULT_PROFILE)
+        merged.update(overrides)
+        return merged
+
+    def prompt_path(self, name):
+        """Per-skill prompt override: prompts/<skill.name>/<name> wins over
+        the shared prompts/<name>. Role prompts are prose about the domain
+        (recruiter vs. generic requester), so skills override whole files
+        rather than threading nouns through templates."""
+        override = os.path.join(self.path("prompts"), self.data["skill"]["name"], name)
+        if os.path.isfile(override):
+            return override
+        return os.path.join(self.path("prompts"), name)
 
     @property
     def skill_repo(self):

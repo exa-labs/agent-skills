@@ -1,10 +1,14 @@
 # Skill optimization pipeline
 
 Improves a skill by editing it against a **score**, not a vibe. The active
-target is `skill.name` in `config.json` (currently `exa-candidate-sourcing`);
+target is `skill.name` in `config.json` (currently `exa-people-search`);
 every data path (inbox, scenarios, fixtures, labels, experiment logs) is
-scoped per-skill, so adding `exa-company-research` later means a new validator
-profile + config switch, not a migration. The skill lives in this monorepo at
+scoped per-skill, and each skill's output contract (CSV name/columns, dedup
+keys, state file) lives in `config.json`'s `profiles` block — defaults in
+`harness/config.py::DEFAULT_PROFILE` are the `exa-candidate-sourcing`
+contract. Role prompts override per-skill via `prompts/<skill-name>/<file>`
+(falling back to the shared `prompts/<file>`). Adding another skill means a
+new profile + prompt overrides + config switch, not a migration. The skill lives in this monorepo at
 `skill.path` (e.g. `skills/exa-candidate-sourcing`); `skill.repo` is the repo
 root. This harness clones the repo into `workspace/`, runs experiments on
 branches (scoped to the skill's subdir), and promotes winners to a
@@ -55,19 +59,28 @@ cat experiments/round-*.json
 
 Every run gets a `scorecard.json`:
 
-- **Deterministic checks** (`harness/validator/deterministic.py`, no LLM):
-  excluded-employer leaks, excluded-people leaks, strict-location violations,
-  must-have dimensions the run itself graded `none`, kept candidates that
-  verification marked `not_found`/`no`, malformed identities (bad LinkedIn
-  URLs, placeholder names), duplicates. Caveat: the must-have column check is
-  best-effort — dimension column names are invented per run by the Inner LLM,
-  so `must_have_column_patterns` can miss. The scorecard's
+- **Deterministic checks** (`harness/validator/deterministic.py`, no LLM),
+  in two precision tiers. Gate-eligible (true positives by construction):
+  excluded-people leaks (exact identity key), must-have dimensions the run
+  itself graded `none`, kept candidates that verification marked
+  `not_found`/`no`, malformed identities (bad LinkedIn URLs, placeholder
+  names), duplicates, and unknown-location rows kept under a strict location
+  constraint. Suspected (`*_suspected`, reported but never gated and never
+  scored — substring/regex matching can't disambiguate org names or know
+  geography): excluded-employer term hits and non-matching location strings;
+  these are tripwires for the adjudicated check below. Caveat: the must-have
+  column check is best-effort — dimension column names are invented per run
+  by the Inner LLM, so `must_have_column_patterns` can miss. The scorecard's
   `must_have_columns_checked` shows what actually matched (watch for `[]`);
   the authoritative must-have gate is the grounded semantic check below.
 - **Grounded fact-check** (Validator LLM, live runs only): fetches each
   candidate's cited sources; contradicted identity → `fabricated_identity`;
-  confident evidence a must-have is missed → `must_have_violation`. Replay
-  runs join the frozen verdicts from `regression/labeled.jsonl` instead.
+  confident evidence a must-have is missed → `must_have_violation`; and the
+  adjudicated semantic constraint calls — confident `in_location: no` →
+  `location_violation`, confident `at_excluded_org: yes` →
+  `excluded_employer_leak` (these gated types come ONLY from here, never from
+  the regex tripwires). Replay runs join the frozen verdicts from
+  `regression/labeled.jsonl` instead.
 - **UX survey**: the simulated recruiter rates checkpoint quality, clarity,
   efficiency, trust (1–5).
 

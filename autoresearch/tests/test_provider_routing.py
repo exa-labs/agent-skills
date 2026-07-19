@@ -66,6 +66,7 @@ class TestRunClaudeEnvInjection(unittest.TestCase):
                 "#!/usr/bin/env python3\n"
                 "import os, json\n"
                 "print(json.dumps({\n"
+                "  'type': 'result',\n"
                 "  'result': os.environ.get('ANTHROPIC_BASE_URL', 'NONE') + '|' +\n"
                 "            ('KEY' if 'ANTHROPIC_API_KEY' in os.environ else 'NOKEY'),\n"
                 "  'session_id': 's', 'total_cost_usd': 0.001, 'is_error': False}))\n")

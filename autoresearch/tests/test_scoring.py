@@ -130,7 +130,59 @@ class TestCompare(unittest.TestCase):
         cand = self.suite((70.0,))
         v = compare(base, cand, SCORING)
         self.assertEqual(v["verdict"], "accept")
+        self.assertEqual(v["accepted_on"], "gate_fix")
         self.assertEqual(v["fixed_gate_failures"], ["s000:must_have_violation"])
+
+
+class TestParsimony(unittest.TestCase):
+    """A smaller skill at the same quality is strictly better — but only at
+    the same quality, and only a real shrink."""
+
+    suite = TestCompare.suite  # same suite-dict builder
+
+    def _sizes(self, base_chars, cand_chars):
+        return ({"chars": base_chars, "words": base_chars // 6, "md_files": 3},
+                {"chars": cand_chars, "words": cand_chars // 6, "md_files": 3})
+
+    def test_shrink_with_flat_quality_accepts(self):
+        base_size, cand_size = self._sizes(10000, 9000)  # -10%
+        v = compare(self.suite((70.0,)), self.suite((70.0,)), SCORING,
+                    baseline_size=base_size, candidate_size=cand_size)
+        self.assertEqual(v["verdict"], "accept")
+        self.assertEqual(v["accepted_on"], "parsimony")
+        self.assertEqual(v["deltas"]["skill_shrink_pct"], 10.0)
+
+    def test_small_shrink_below_threshold_rejects(self):
+        base_size, cand_size = self._sizes(10000, 9800)  # -2% < 5% threshold
+        v = compare(self.suite((70.0,)), self.suite((70.0,)), SCORING,
+                    baseline_size=base_size, candidate_size=cand_size)
+        self.assertEqual(v["verdict"], "reject")
+
+    def test_shrink_that_drops_quality_rejects(self):
+        base_size, cand_size = self._sizes(10000, 8000)  # -20%, but composite -3
+        v = compare(self.suite((70.0,)), self.suite((67.0,)), SCORING,
+                    baseline_size=base_size, candidate_size=cand_size)
+        self.assertEqual(v["verdict"], "reject")
+
+    def test_shrink_cannot_mask_new_gate_failure(self):
+        base_size, cand_size = self._sizes(10000, 8000)
+        v = compare(self.suite((70.0,)),
+                    self.suite((70.0,), gate_pairs=["s000:duplicate_candidate"]),
+                    SCORING, baseline_size=base_size, candidate_size=cand_size)
+        self.assertEqual(v["verdict"], "reject")
+
+    def test_growth_is_reported_in_deltas(self):
+        base_size, cand_size = self._sizes(10000, 11000)  # skill GREW 10%
+        v = compare(self.suite((70.0,)), self.suite((75.0,)), SCORING,
+                    baseline_size=base_size, candidate_size=cand_size)
+        self.assertEqual(v["verdict"], "accept")  # improvement path, unchanged
+        self.assertEqual(v["accepted_on"], "improvement")
+        self.assertEqual(v["deltas"]["skill_shrink_pct"], -10.0)
+
+    def test_no_sizes_means_no_parsimony_path(self):
+        v = compare(self.suite((70.0,)), self.suite((70.0,)), SCORING)
+        self.assertEqual(v["verdict"], "reject")
+        self.assertNotIn("skill_shrink_pct", v["deltas"])
 
 
 class TestSuiteScore(unittest.TestCase):

@@ -128,7 +128,7 @@ def import_inbox(inbox_dir, suite_dir):
                        **EXPECTATION_DEFAULTS}, f, indent=2)
         with open(os.path.join(sdir, "persona.md"), "w") as f:
             f.write("# Persona (TODO — draft by hand or run: cli.py import --enrich)\n\n"
-                    "You are the hiring recruiter for the attached JD.\n\n"
+                    "You are the requester who supplied the attached brief.\n\n"
                     "## Preferences you reveal only when asked\n- TODO\n\n"
                     "## Curveballs\n- (none)\n\n"
                     "## What satisfies you\n- TODO\n")

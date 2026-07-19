@@ -28,7 +28,7 @@ SHIMS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 
 def _prompt(config, name):
-    with open(os.path.join(config.path("prompts"), name)) as f:
+    with open(config.prompt_path(name)) as f:
         return f.read()
 
 
@@ -48,29 +48,44 @@ def _inner_env(run_dir, mode):
     return env
 
 
-def _user_turn(config, scenario, conversation, survey_only=False):
-    """One User-LLM decision. Returns {"action", "message", "ux"}."""
+def _user_turn(config, scenario, conversation, survey_only=False, run_dir=None):
+    """One User-LLM decision. Returns {"action", "message", "ux"}.
+
+    A failed or unparseable reply is retried once before aborting: the user
+    turn is the cheapest actor in the session, and one flaky reply must not
+    abandon an Inner session that is dollars deep. Unparseable text is
+    persisted to the run dir for diagnosis either way."""
     template = _prompt(config, "user_llm.md")
     prompt = render(template,
                     persona=scenario.persona,
                     jd=scenario.jd,
                     conversation=json.dumps(conversation, indent=2),
                     survey_only="yes" if survey_only else "no")
-    res = run_claude(prompt, model=config.model("user"), cwd=config.pipeline_dir,
-                     timeout_s=config.limit("user_turn_timeout_s"),
-                     env_extra=config.actor_env("user"),
-                     disallowed_tools=["Bash", "Write", "Edit", "WebFetch", "WebSearch"])
-    if not res.ok:
-        return {"action": "abort", "message": "", "ux": None,
-                "_error": f"user LLM turn failed: {res.error}", "_cost": res.cost_usd}
-    try:
-        payload = res.json_payload()
-    except Exception as e:  # noqa: BLE001 — any parse failure ends the session cleanly
-        return {"action": "abort", "message": "", "ux": None,
-                "_error": f"user LLM returned unparseable output: {e}", "_cost": res.cost_usd}
-    return {"action": payload.get("action", "continue"),
-            "message": payload.get("message", ""),
-            "ux": payload.get("ux"), "_cost": res.cost_usd}
+    cost, error = 0.0, None
+    for attempt in range(2):
+        res = run_claude(prompt, model=config.model("user"), cwd=config.pipeline_dir,
+                         timeout_s=config.limit("user_turn_timeout_s"),
+                         env_extra=config.actor_env("user"),
+                         disallowed_tools=["Bash", "Write", "Edit", "WebFetch", "WebSearch"])
+        cost += res.cost_usd
+        if not res.ok:
+            error = f"user LLM turn failed: {res.error}"
+            continue
+        try:
+            payload = res.json_payload()
+        except Exception as e:  # noqa: BLE001 — retried once, then ends the session cleanly
+            error = f"user LLM returned unparseable output: {e}"
+            if run_dir:
+                tag = "survey" if survey_only else f"t{len(conversation):02d}"
+                path = os.path.join(run_dir, f"user-unparseable-{tag}-a{attempt}.txt")
+                with open(path, "w") as f:
+                    f.write(res.text or "")
+            continue
+        return {"action": payload.get("action", "continue"),
+                "message": payload.get("message", ""),
+                "ux": payload.get("ux"), "_cost": cost}
+    return {"action": "abort", "message": "", "ux": None,
+            "_error": error, "_cost": cost}
 
 
 def run_session(config, scenario, skill_dir, skill_ref, mode, run_id, bundle_dir=None):
@@ -87,11 +102,12 @@ def run_session(config, scenario, skill_dir, skill_ref, mode, run_id, bundle_dir
 
     bootstrap = _prompt(config, "inner_replay.md" if mode == "replay" else "inner_live.md")
     env = _inner_env(run_dir, mode)
+    requester_role = config.profile["requester_role"]
     conversation, cost, session_id = [], 0.0, None
     failure, ux = None, None
 
     for turn in range(config.limit("max_user_turns")):
-        user = _user_turn(config, scenario, conversation)
+        user = _user_turn(config, scenario, conversation, run_dir=run_dir)
         cost += user.get("_cost", 0.0)
         if user.get("_error"):
             failure = user["_error"]
@@ -99,9 +115,9 @@ def run_session(config, scenario, skill_dir, skill_ref, mode, run_id, bundle_dir
         if user["action"] in ("accept", "abort") and conversation:
             ux = user.get("ux")
             if user["action"] == "abort":
-                failure = failure or "recruiter aborted the session"
+                failure = failure or f"{requester_role} aborted the session"
             break
-        conversation.append({"role": "recruiter", "text": user["message"]})
+        conversation.append({"role": requester_role, "text": user["message"]})
 
         if session_id is None:
             prompt = render(bootstrap, skill_dir=skill_dir,
@@ -132,16 +148,18 @@ def run_session(config, scenario, skill_dir, skill_ref, mode, run_id, bundle_dir
         conversation.append({"role": "skill_agent", "text": inner.text})
 
     if ux is None and not failure:
-        survey = _user_turn(config, scenario, conversation, survey_only=True)
+        survey = _user_turn(config, scenario, conversation, survey_only=True,
+                            run_dir=run_dir)
         cost += survey.get("_cost", 0.0)
         ux = survey.get("ux")
 
-    csv_path = os.path.join(outdir, "candidates.csv")
+    output_csv = config.profile["output_csv"]
+    csv_path = os.path.join(outdir, output_csv)
     # a CSV left over from an earlier turn doesn't make a crashed/aborted
     # session a success — any failure means not completed
     completed = os.path.isfile(csv_path) and failure is None
     if not os.path.isfile(csv_path) and not failure:
-        failure = "session ended without producing candidates.csv"
+        failure = f"session ended without producing {output_csv}"
 
     info = {"run_id": run_id, "scenario": scenario.id, "skill_ref": skill_ref,
             "mode": mode, "completed": completed, "failure": failure,
@@ -161,13 +179,14 @@ def validate_run(config, scenario, run_id, session_info, refetch=False):
     re-validating never re-spends fetches or re-appends labels unless
     `refetch` is set. Writes and returns the scorecard."""
     run_dir = os.path.join(config.path("runs"), run_id)
-    csv_path = os.path.join(run_dir, "outdir", "candidates.csv")
+    csv_path = os.path.join(run_dir, "outdir", config.profile["output_csv"])
     first_validation = not os.path.isfile(os.path.join(run_dir, "scorecard.json"))
     mode = session_info["mode"]
     cost = 0.0
 
     if os.path.isfile(csv_path):
-        det = deterministic.check_run(csv_path, scenario.expectations)
+        det = deterministic.check_run(csv_path, scenario.expectations,
+                                      profile=config.profile)
         rows = load_candidates(csv_path)
     else:
         det = {"violations": [], "stats": {"returned": 0,

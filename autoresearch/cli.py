@@ -41,7 +41,7 @@ def cmd_import(config, args):
         print("inbox empty — drop JD / query files into "
               f"{os.path.relpath(config.path('inbox'), config.pipeline_dir)}/ first")
     if args.enrich:
-        with open(os.path.join(config.path("prompts"), "importer_enrich.md")) as f:
+        with open(config.prompt_path("importer_enrich.md")) as f:
             prompt = f.read()
         targets = [s for s in list_scenarios(config.path("suite"))
                    if s.meta.get("status") == "needs_review"]
@@ -90,7 +90,9 @@ def cmd_compare(config, args):
         with open(path) as f:
             suites[label] = json.load(f)
     _p(compare_suites(suites["baseline"]["score"], suites["candidate"]["score"],
-                      config["scoring"]))
+                      config["scoring"],
+                      baseline_size=suites["baseline"].get("skill_size"),
+                      candidate_size=suites["candidate"].get("skill_size")))
 
 
 def cmd_optimize(config, args):

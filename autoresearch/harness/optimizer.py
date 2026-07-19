@@ -27,9 +27,25 @@ from .prompt_render import render
 from .runner import find_latest_suite, run_suite
 from .validator.scorecard import load_scorecard
 from .scoring import compare
-from .workspace import PromotionConflict, Workspace
+from .workspace import PromotionConflict, Workspace, skill_size
 
 SEARCH_STAGES = {"search", "discovery", "verify", "verification"}
+
+
+def _live_only_changes(config, ws, base_ref):
+    """Changed paths that only execute in a live run (the orchestrator never
+    runs in replay — the Inner works from frozen fixtures instead). Proposals
+    self-report their stages, but an LLM can misjudge or disguise scope; the
+    diff cannot. Any hit means a replay evaluation would dishonestly measure
+    the edit as 'no change'."""
+    prefixes = tuple(config.profile.get("live_only_paths", ["orchestrator/"]))
+    sub = ws.skill_subpath
+    hits = []
+    for path in ws.changed_files(base_ref):
+        rel = path[len(sub):].lstrip("/") if sub and path.startswith(sub) else path
+        if rel.startswith(prefixes):
+            hits.append(path)
+    return hits
 
 
 def _slug(proposal):
@@ -40,7 +56,7 @@ def _slug(proposal):
 
 
 def _prompt(config, name):
-    with open(os.path.join(config.path("prompts"), name)) as f:
+    with open(config.prompt_path(name)) as f:
         return f.read()
 
 
@@ -86,6 +102,9 @@ def build_dossier(config, baseline_suite, skill_dir):
                 "deltas": e.get("deltas")} for e in read_log(config)]
     return {"skill_md": skill_text,
             "suite_score": baseline_suite["score"],
+            # size trend is part of the dossier so the Outer sees the cost of
+            # the text it adds; deltas in the history carry skill_shrink_pct
+            "skill_size": baseline_suite.get("skill_size") or skill_size(skill_dir),
             "scorecards": scorecards,
             "experiment_history": history[-25:]}
 
@@ -93,6 +112,7 @@ def build_dossier(config, baseline_suite, skill_dir):
 def propose(config, dossier, k):
     prompt = render(_prompt(config, "outer_propose.md"),
                     k=k,
+                    skill_name=config["skill"]["name"],
                     dossier=json.dumps({key: v for key, v in dossier.items() if key != "skill_md"},
                                        indent=2),
                     skill_md=dossier["skill_md"])
@@ -111,6 +131,7 @@ def propose(config, dossier, k):
 
 def apply_edit(config, ws, proposal, branch):
     prompt = render(_prompt(config, "outer_apply.md"),
+                    skill_name=config["skill"]["name"],
                     hypothesis=proposal.get("hypothesis", ""),
                     edit_instructions=proposal.get("edit_instructions", ""))
     res = run_claude(prompt, model=config.model("outer"), cwd=ws.skill_dir,
@@ -170,19 +191,29 @@ def optimize_round(config, experiments=None, mode="replay", promote=True):
         ws.push_branch(branch)
 
         touches_search = any(s.lower() in SEARCH_STAGES for s in proposal.get("stages", []))
-        if mode == "replay" and touches_search:
-            entry.update(verdict="needs_live",
-                         reasons=["edit touches the search stage; frozen fixtures "
-                                  "cannot measure it — evaluate with --mode live"])
+        live_only_hits = _live_only_changes(config, ws, base_ref) if mode == "replay" else []
+        if mode == "replay" and (touches_search or live_only_hits):
+            park_reasons = []
+            if touches_search:
+                park_reasons.append("edit touches the search stage; frozen fixtures "
+                                    "cannot measure it — evaluate with --mode live")
+            if live_only_hits:
+                park_reasons.append("edit changes live-only files (never executed in "
+                                    f"replay): {live_only_hits} — evaluate with --mode live")
+            entry.update(verdict="needs_live", reasons=park_reasons)
             append_log(config, entry)
             results.append(entry)
             continue
 
         suite = run_suite(config, branch, mode)
-        verdict = compare(baseline["score"], suite["score"], config["scoring"])
+        verdict = compare(baseline["score"], suite["score"], config["scoring"],
+                          baseline_size=baseline.get("skill_size"),
+                          candidate_size=suite.get("skill_size"))
         entry.update(verdict=verdict["verdict"], reasons=verdict["reasons"],
-                     deltas=verdict["deltas"], suite_id=suite["suite_id"],
+                     deltas=verdict["deltas"], accepted_on=verdict.get("accepted_on"),
+                     suite_id=suite["suite_id"],
                      composite=suite["score"]["composite"],
+                     skill_size=suite.get("skill_size"),
                      eval_cost_usd=suite["total_cost_usd"])
         append_log(config, entry)
         results.append(entry)

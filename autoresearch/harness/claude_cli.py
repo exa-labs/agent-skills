@@ -29,17 +29,32 @@ class ClaudeResult:
     def json_payload(self):
         """Extract a strict-JSON payload from the assistant text.
 
-        Roles that must answer in JSON sometimes wrap it in prose or a code
-        fence; take the outermost object.
+        Roles that must answer in JSON sometimes wrap it in prose, code
+        fences, or stray braces (a first-`{`-to-last-`}` slice would splice
+        unrelated objects together); scan for complete objects instead and
+        take the last one — models put the final answer at the end.
         """
         text = self.text or ""
-        fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if fenced:
-            return json.loads(fenced.group(1))
-        start, end = text.find("{"), text.rfind("}")
-        if start == -1 or end <= start:
+        fenced = [o for m in re.findall(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+                  for o in _json_objects(m)]
+        objs = fenced or _json_objects(text)
+        if not objs:
             raise ClaudeError(f"no JSON object in response: {text[:300]!r}")
-        return json.loads(text[start:end + 1])
+        return objs[-1]
+
+
+def _json_objects(text):
+    """Every complete top-level JSON object in text, in order."""
+    dec, objs, idx = json.JSONDecoder(), [], 0
+    while (start := text.find("{", idx)) != -1:
+        try:
+            obj, end = dec.raw_decode(text, start)
+        except json.JSONDecodeError:
+            idx = start + 1
+            continue
+        objs.append(obj)
+        idx = end
+    return objs
 
 
 def claude_bin():
@@ -53,17 +68,18 @@ def run_claude(prompt, *, model, cwd, timeout_s,
                settings=None, strict_mcp=False):
     """One headless turn. Returns ClaudeResult; raises ClaudeError on hard failure.
 
-    transcript_path: when set, uses --output-format stream-json and writes the
-    raw event stream there (this is how live runs get recorded — the recorder
-    parses Exa traffic out of the transcript's tool calls as a fallback to the
-    env shims).
+    transcript_path: when set, the raw event stream is written there (this is
+    how live runs get recorded — the recorder parses Exa traffic out of the
+    transcript's tool calls as a fallback to the env shims).
+
+    Every turn runs with --output-format stream-json: with plain json output,
+    proxied reasoning models (e.g. GLM via OpenRouter) can leave the final
+    `result` field empty when the provider orders thinking blocks after the
+    text block — the events are the only place the actual text survives.
     """
-    stream = transcript_path is not None
     cmd = [claude_bin(), "-p", "--model", model,
            "--permission-mode", "bypassPermissions",
-           "--output-format", "stream-json" if stream else "json"]
-    if stream:
-        cmd.append("--verbose")
+           "--output-format", "stream-json", "--verbose"]
     if strict_mcp:
         # No inherited MCP servers: an Exa MCP tool would bypass the
         # curl/urllib shims, defeating recording (live) and hermeticity (replay)
@@ -82,7 +98,10 @@ def run_claude(prompt, *, model, cwd, timeout_s,
         cmd += ["--resume", resume]
     if settings:
         cmd += ["--settings", json.dumps(settings)]
-    cmd.append(prompt)
+    # The prompt goes over STDIN, never as a positional argument: variadic
+    # flags (--allowedTools, --disallowedTools) swallow a trailing positional
+    # ("Input must be provided either through stdin..."), and stdin also
+    # sidesteps E2BIG on oversized prompts.
 
     env = dict(os.environ)
     # A None value means "unset this var for the subprocess" (used to route an
@@ -95,7 +114,7 @@ def run_claude(prompt, *, model, cwd, timeout_s,
 
     try:
         proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True,
-                              text=True, timeout=timeout_s)
+                              text=True, timeout=timeout_s, input=prompt)
     except subprocess.TimeoutExpired:
         return ClaudeResult("", None, 0.0, [], ok=False,
                             error=f"timed out after {timeout_s}s")
@@ -103,37 +122,40 @@ def run_claude(prompt, *, model, cwd, timeout_s,
         return ClaudeResult("", None, 0.0, [], ok=False,
                             error=f"failed to exec {cmd[0]}: {e}")
 
-    if stream:
-        events = []
-        for line in proc.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-        if transcript_path:
-            with open(transcript_path, "w") as f:
-                f.write(proc.stdout)
-        final = next((e for e in reversed(events) if e.get("type") == "result"), None)
-        if final is None:
-            return ClaudeResult("", None, 0.0, events, ok=False,
-                                error=f"no result event (exit {proc.returncode}): "
-                                      f"{proc.stderr[:500]}")
-        return ClaudeResult(final.get("result") or "", final.get("session_id"),
-                            final.get("total_cost_usd"), events,
-                            ok=not final.get("is_error", False),
-                            error=final.get("result") if final.get("is_error") else None)
+    events = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    if transcript_path:
+        with open(transcript_path, "w") as f:
+            f.write(proc.stdout)
+    final = next((e for e in reversed(events) if e.get("type") == "result"), None)
+    if final is None:
+        return ClaudeResult("", None, 0.0, events, ok=False,
+                            error=f"no result event (exit {proc.returncode}): "
+                                  f"{proc.stderr[:500]}")
+    text = final.get("result") or _assistant_text(events)
+    return ClaudeResult(text, final.get("session_id"),
+                        final.get("total_cost_usd"), events,
+                        ok=not final.get("is_error", False),
+                        error=final.get("result") if final.get("is_error") else None)
 
-    # plain json output
-    try:
-        payload = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return ClaudeResult("", None, 0.0, [], ok=False,
-                            error=f"unparseable output (exit {proc.returncode}): "
-                                  f"{proc.stdout[:300]!r} stderr={proc.stderr[:300]!r}")
-    return ClaudeResult(payload.get("result") or "", payload.get("session_id"),
-                        payload.get("total_cost_usd"), [],
-                        ok=not payload.get("is_error", False),
-                        error=payload.get("result") if payload.get("is_error") else None)
+
+def _assistant_text(events):
+    """Text blocks of the last assistant message, for when the result event's
+    `result` field is empty (proxied reasoning models can emit thinking blocks
+    after the text block, which the CLI's own extraction drops)."""
+    for e in reversed(events):
+        if e.get("type") != "assistant":
+            continue
+        parts = [b.get("text", "") for b in e.get("message", {}).get("content", [])
+                 if isinstance(b, dict) and b.get("type") == "text"]
+        text = "".join(parts).strip()
+        if text:
+            return text
+    return ""
