@@ -10,25 +10,25 @@ context: fork
 
 Two Exa surfaces, two jobs:
 
-- **Exa Agent** (`agent_create_run` / `agent_wait_for_run` / `agent_get_run_output`) — the default for company research. Use it for deep dives, competitor analysis, multi-angle research (product + funding + news + people), and building company lists. One Agent run handles query decomposition, multi-step searching, and synthesis internally — do not orchestrate many manual searches for work an Agent run covers.
+- **Exa Agent** (`agent_run`) — the default for company research. Use it for deep dives, competitor analysis, multi-angle research (product + funding + news + people), and building company lists. One Agent run handles query decomposition, multi-step searching, and synthesis internally — do not orchestrate many manual searches for work an Agent run covers.
 - **`web_search_advanced_exa`** — quick, low-latency lookups: a fast `category: "company"` discovery pass, a single news check, or finding a homepage.
 
 Do NOT use other Exa tools.
 
 ## Deep Dives and Lists: Exa Agent
 
-Agent runs are async: create the run, wait for it, then read the output.
+Agent runs may stream to completion in one call. If a run outlives the MCP call window, continue waiting with its returned run ID.
 
-1. `agent_create_run` with a natural-language `query` and, when you want repeatable structure, an `outputSchema` (bound arrays with `maxItems`). Returns an `agent_run_...` ID.
-2. `agent_wait_for_run` until the run is `completed` (call again if still running).
-3. `agent_get_run_output` — read `output.text` or `output.structured`, plus `output.grounding` citations.
+1. Call `agent_run` with a natural-language `query` and, when you want repeatable structure, an `outputSchema` (bound arrays with `maxItems`).
+2. If it returns `status: "running"` with a `runId`, call `agent_run` again with only that `runId` until `outputReady` is true.
+3. Read `output.text` or `output.structured`, plus `output.grounding` citations, from the `agent_run` result.
 
-Useful inputs: `systemPrompt` (source preferences, dedup rules), `input.exclusion` (companies to avoid), `previousRunId` (follow-up runs), `effort` (`"auto"` default; `"high"` for hard research).
+Useful inputs: `systemPrompt` (source preferences, dedup rules), `input.exclusion` (companies to avoid), `previousRunId` (a new follow-up run based on a completed run), `effort` (`"low"` default; `"auto"` or `"high"` for more depth).
 
 ### Example: company deep dive
 
 ```
-agent_create_run {
+agent_run {
   "query": "Research Anthropic: product lines, funding history and valuation, key executives, main competitors, and notable news from the last 6 months.",
   "effort": "auto",
   "outputSchema": {
@@ -47,7 +47,7 @@ agent_create_run {
 ### Example: build a company list
 
 ```
-agent_create_run {
+agent_run {
   "query": "Find 25 AI infrastructure startups headquartered in San Francisco. For each, include what they build and their latest funding stage.",
   "effort": "auto",
   "outputSchema": {
