@@ -111,7 +111,7 @@ The contents endpoint can return HTTP 200 even when some requested URLs fail. Al
   ],
   "statuses": [
     { "id": "https://example.com", "status": "success" },
-    { "id": "https://bad.example", "status": "error" }
+    { "id": "https://failed-url.example.com", "status": "error" }
   ]
 }
 ```
