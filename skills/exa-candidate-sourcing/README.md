@@ -73,3 +73,26 @@ role match, graded on all six rubric dimensions, and has a LinkedIn URL.
 
 The Exa Agent API (`/agent/runs`) needs a key with **Agent API access** — a default search key
 returns HTTP 429. Verify with the curl one-liner at the top of `SKILL.md`.
+
+The skill resolves a key in this order: `EXA_API_KEY` in the environment, then `~/.config/exa/key`
+(written by `scripts/set-exa-key.sh`), then a bundled `orchestrator/.exa_key` file.
+
+## Packaging for a customer (pre-keyed, turnkey)
+
+To hand someone a copy that runs with no setup step, drop their key into the bundle:
+
+```bash
+printf '%s' '<the customer key>' > orchestrator/.exa_key   # no trailing newline
+# then zip the skill directory and send it
+```
+
+Because the resolver checks `orchestrator/.exa_key` last, the copy runs out of the box while an
+env var or `~/.config/exa/key` still wins for anyone who has their own key. The pre-flight check in
+`SKILL.md` returns 200 as soon as the bundled key resolves, so the model skips the setup prompt.
+
+Before you send it:
+- **Issue a dedicated key for that customer** — not your own. Scope it to Agent API access, put a
+  spend cap / rate limit on it, and keep it independently revocable. Treat the bundled copy as a
+  secret that can leak (it travels wherever the zip goes) — the spend cap is your real protection.
+- `orchestrator/.exa_key` is `.gitignore`d so a bundled key is never committed to this repo. It
+  lives only in the copy you hand off.

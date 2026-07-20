@@ -38,7 +38,7 @@
   "max_per_call": 12,
   "discovery_effort": "medium",
   "verify_effort": "high",
-  "data_sources": ["fiber_ai"],
+  "data_sources": ["fiber"],
   "concurrency": 2,
   "max_attempts": 3,
   "_comment_max_attempts": "How many times to (re)try each discovery segment / verify batch before giving up. If a run doesn't reach 'completed', each retry starts a fresh run. Default 3. Only completed runs are saved for --more, so a dropped segment restarts cold."

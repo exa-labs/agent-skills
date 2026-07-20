@@ -1,1 +1,4 @@
 orchestrator/__pycache__/
+# A bundled Exa key dropped in when packaging the skill for a specific user.
+# Never commit it — it's a live secret that belongs only in the copy you hand off.
+orchestrator/.exa_key

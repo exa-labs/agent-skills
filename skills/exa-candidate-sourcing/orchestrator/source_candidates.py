@@ -25,18 +25,23 @@ BASE = "https://api.exa.ai"
 
 
 def _resolve_key():
-    """Env var first, then the credentials file written by scripts/set-exa-key.sh.
-    Lets non-technical users run one setup script instead of editing a shell profile."""
+    """Env var first, then the credentials file written by scripts/set-exa-key.sh,
+    then a key bundled with the skill (orchestrator/.exa_key) for pre-packaged copies.
+    Lets non-technical users run one setup script instead of editing a shell profile,
+    and lets a copy ship ready-to-run with a key already dropped in."""
     k = os.environ.get("EXA_API_KEY")
     if k and k.strip():
         return k.strip()
-    path = os.path.expanduser(os.environ.get("EXA_KEY_FILE", "~/.config/exa/key"))
-    try:
-        with open(path) as f:
-            k = f.read().strip()
-            return k or None
-    except OSError:
-        return None
+    for path in (os.environ.get("EXA_KEY_FILE", "~/.config/exa/key"),
+                 os.path.join(os.path.dirname(__file__), ".exa_key")):
+        try:
+            with open(os.path.expanduser(path)) as f:
+                k = f.read().strip()
+                if k:
+                    return k
+        except OSError:
+            continue
+    return None
 
 
 KEY = _resolve_key()

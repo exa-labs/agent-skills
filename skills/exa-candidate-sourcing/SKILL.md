@@ -46,13 +46,19 @@ review the shortlist interactively in a browser instead of only a spreadsheet.
 
 - An Exa API key with **Agent API access** (not all keys have it). The skill resolves it in this
   order: **`EXA_API_KEY` in the environment first, then the credentials file `~/.config/exa/key`**
-  (override the path with `EXA_KEY_FILE`). Quick check — this must return HTTP 200, not 429/401:
+  (override the path with `EXA_KEY_FILE`), **then a key bundled with the skill at
+  `orchestrator/.exa_key`** (present only in copies pre-packaged for a specific user). Quick
+  check — this must return HTTP 200, not 429/401:
   ```bash
-  KEY="${EXA_API_KEY:-$(cat ~/.config/exa/key 2>/dev/null)}"
+  KEY="${EXA_API_KEY:-$(cat ~/.config/exa/key 2>/dev/null || cat "$(dirname "$0")/orchestrator/.exa_key" 2>/dev/null)}"
   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.exa.ai/agent/runs \
     -H "x-api-key: $KEY" -H "Content-Type: application/json" \
     -d '{"query":"Say hi in one word","effort":"low"}'
   ```
+  (Replace `"$(dirname "$0")"` with the skill's base directory if you're not running from there.)
+- **Key already present (including a bundled `orchestrator/.exa_key`)?** If the check above returns
+  **200, you're done — skip setup entirely and proceed.** Do not prompt the user to run the setup
+  script when a key already resolves.
 - **No key set?** Do **not** walk the
   user through editing a shell profile by hand, and do **not** accept a key pasted into the chat.
   Instead point them at the bundled setup script, which is the whole flow: they run one command in
@@ -77,9 +83,12 @@ review the shortlist interactively in a browser instead of only a spreadsheet.
   Full reference: `references/exa-agent-api.md`.
 - **No shell / sandboxed (no curl, no Python)?** Then the orchestrator can't run either — this is
   the main case for running Steps 2-6 by hand. Don't skip the run or ask the user to curl for you.
-  Use the **Exa MCP server**, whose tools map to the endpoints above: `agent_create_run` (same query,
-  schema, `effort`), `agent_wait_for_run` / `agent_get_run_output` to poll/read, `agent_cancel_run`
-  to stop, and `web_fetch_exa` to read a JD URL. Everything else in the skill is transport-agnostic.
+  Use the **Exa MCP server**: a single **`agent_run`** tool replaces the whole POST-then-poll loop.
+  Pass `query`, `effort`, `outputSchema`, `input` (`exclusion` / `data`), `dataSources`, and
+  `previousRunId`; it blocks and waits, and if a run outlives the call it returns an `agent_run_...`
+  id you pass back as `runId` to keep waiting — there is no `GET`-poll and no cancel step. Use
+  `web_fetch_exa` to read a JD URL. Everything else in the skill (query templates, schemas, scoring)
+  is transport-agnostic — ignore only the references' curl/endpoint mechanics.
 
 ## Step 1 — Read the JD and build a search plan
 
@@ -146,7 +155,7 @@ every key maps 1:1 to a plan field): `role`, `locations`, `exclude_employer`, `e
 `rubric_must_haves`, `rubric_signals`, `dimensions` (`{key, scale}`, optional `extra` string-array
 fields), `segments` (`{label, focus}`), plus `max_per_call` (12), `discovery_effort` (`"medium"`),
 `verify_effort` (`"high"`), `max_attempts` (retries per segment/verify batch if a run doesn't
-complete, default 3), and optional `data_sources` (e.g. `["fiber_ai"]` if the account has
+complete, default 3), and optional `data_sources` (e.g. `["fiber"]` if the account has
 Exa Connect people data). Then run:
 
 ```bash
@@ -197,7 +206,7 @@ be confirmed and never guess or fabricate one. The orchestrator accepts shorthan
 
 For each segment, start an Exa Agent run with `effort: "medium"` and your output schema.
 If your account has Exa Connect data partners, attach a people-data source with
-`"dataSources": [{"provider": "fiber_ai"}]` and say so in the query. The query should:
+`"dataSources": [{"provider": "fiber"}]` and say so in the query. The query should:
 
 - State the role + MUST-HAVE and NICE-TO-HAVE profile.
 - Give the segment's `focus` as **where to look** — and say "verify independently, do NOT treat as ground truth."

@@ -62,7 +62,7 @@ Each discovery run must return JSON matching a strict schema built from *your* S
 
 Create one run per segment at `effort: "medium"` with your schema. (`medium` is the right default
 for a per-segment fan-out; `auto` costs far more for the same verified-real rate.) If your account
-has Exa Connect people data, attach it (`"dataSources": [{"provider": "fiber_ai"}]`) and say so in
+has Exa Connect people data, attach it (`"dataSources": [{"provider": "fiber"}]`) and say so in
 the query. Each query should:
 
 - State the role plus MUST-HAVE and NICE-TO-HAVE profile.

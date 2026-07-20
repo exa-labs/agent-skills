@@ -58,7 +58,7 @@ the rest only some — so a candidate without an entry is normal, not an error.
     "exclusion": [ { "person": "Jane Doe" } ],   // optional: keep these out
     "data": [ { "id": "li:janedoe", "name": "Jane Doe" } ]  // optional: rows to process/enrich
   },
-  "dataSources": [ { "provider": "fiber_ai" } ], // optional: Exa Connect data partners
+  "dataSources": [ { "provider": "fiber" } ], // optional: Exa Connect data partners
   "previousRunId": "agent_run_..."                     // optional: continue a completed run's context
 }
 ```
@@ -69,7 +69,7 @@ the rest only some — so a candidate without an entry is normal, not an error.
 - `input.exclusion` — pass already-seen names so later segment runs don't all return the same people.
 - `input.data`: structured rows the run should process; give each row a stable `id` and make the
   output schema echo it so results join back exactly (used by the verification pass).
-- `dataSources`: attaches premium Exa Connect partners (e.g. `fiber_ai`, a B2B people database);
+- `dataSources`: attaches premium Exa Connect partners (e.g. `fiber`, a B2B people database);
   mention the attached source in the query so the agent uses it.
 - `previousRunId`: starts a new run that carries over a completed run's research context; use for
   "find N more" follow-ups together with `input.exclusion` of everyone already seen.
