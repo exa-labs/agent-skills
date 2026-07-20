@@ -153,7 +153,7 @@ curl -sS -X POST "https://api.exa.ai/contents" \
   -H "Content-Type: application/json" \
   -H "x-api-key: $EXA_API_KEY" \
   -d '{
-    "urls": ["https://example.com", "https://bad.example"],
+    "urls": ["https://example.com", "https://failed-url.example.com"],
     "highlights": true
   }' | jq '{results, statuses}'
 ```
