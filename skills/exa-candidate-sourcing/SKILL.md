@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access, Python 3, and an EXA_API_KEY environment variable (or ~/.config/exa/key) with Exa Agent API access. The bundled Python orchestrator (stdlib only) executes the searches; by-hand HTTP calls (curl, or the Exa MCP server) are the fallback when it cannot run.
 metadata:
   author: Exa
-  version: "1.10"
+  version: "1.11"
 ---
 
 # Candidate sourcing from a job description
