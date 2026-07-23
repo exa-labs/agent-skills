@@ -9,14 +9,21 @@ clouds, ISVs, SIs, and partners, never at Amazon/AWS itself (the `exclude_employ
   "role": "Solutions Architect, ISV (a customer-facing, pre-sales cloud solutions-architecture role)",
   "locations": ["San Francisco Bay Area", "New York City", "Austin TX", "Dallas TX"],
   "exclude_employer": "Amazon / AWS / Amazon Web Services",
+  "hard_constraints": {
+    "location_mode": "preferred",
+    "excluded_current_employers": [],
+    "excluded_current_employers_confirmed": false,
+    "required_seniority_levels": [],
+    "requirements": []
+  },
 
-  "must_haves": [
+  "rubric_must_haves": [
     "4+ years in a technical domain: software development, cloud computing, systems engineering, infrastructure, security, networking, or data & analytics.",
     "2+ years of design, implementation, or consulting experience with applications and infrastructure.",
     "Customer-facing / pre-sales ability: leading architecture discussions, customer enablement, relationships with senior technical stakeholders.",
     "Strong cloud-computing expertise (any major cloud) and application architecture at scale."
   ],
-  "signals": [
+  "rubric_signals": [
     "Cloud migration / legacy modernization / cloud transformation experience.",
     "A pre-sales Solutions Architect / Sales Engineer / Customer Engineer title.",
     "Experience at or selling to ISVs (independent software vendors / SaaS companies).",
@@ -52,6 +59,13 @@ clouds, ISVs, SIs, and partners, never at Amazon/AWS itself (the `exclude_employ
   NVIDIA, travel-tech ISVs like Sabre/Amadeus/Expedia).
 - **Senior Solutions Architect, ISV** — same plan, but raise the seniority bar: weight
   `seniority` toward `ic_staff_principal+`, expect more years, and bias `thoughtLeadership` higher.
+
+## Calibration and expansion
+
+- First run one combined calibration sample with up to two provisional candidates from each
+  segment. Ask the recruiter which pools and profiles are directionally right.
+- Patch the confirmed brief, preserving location and other hard constraints, before expansion.
+- Expand only approved or underfilled segments.
 
 ## Notes from the test run
 

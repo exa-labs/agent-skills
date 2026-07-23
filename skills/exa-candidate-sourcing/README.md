@@ -1,98 +1,47 @@
 # Exa candidate sourcing
 
-Turn a job description into a **ranked, verified list of real candidates** (with LinkedIn URLs)
-using the Exa Agent API. It is an agent skill with a scripted execution engine, and the two parts
-have distinct jobs:
+An agent skill for building and iteratively refining verified recruiting shortlists with Exa.
 
-| | **Skill** (`SKILL.md`) | **Python orchestrator** (the execution engine) |
-| --- | --- | --- |
-| What it is | A markdown procedure an agent (Kiro, Claude, Devin) follows | `orchestrator/source_candidates.py` — a self-contained script (stdlib only) |
-| Its job | Read the JD, build the search plan, confirm it with the recruiter, write the config, interpret results | Execute the pipeline from `config.json`: discovery fan-out, verification, scoring, CSV/XLSX/HTML out |
-| Why split it this way | Planning and preference-gathering need a model | Moving candidate data must not: the script carries every name, URL, and score, so nothing gets mistranscribed or hallucinated between steps |
+The default workflow is calibration-first:
 
-The agent drives the orchestrator by default; `SKILL.md` also documents the full pipeline as a
-**by-hand fallback** for the cases where the script cannot run (no shell or Python, single-run
-debugging, a deliberately tiny search).
+1. Confirm a durable recruiting brief with hard constraints and preferences.
+2. Run one lightweight sample across all proposed talent segments.
+3. Apply recruiter feedback to the existing brief and candidate pool.
+4. Expand only approved segments, then verify and rank the shortlist.
 
-Both paths implement the **same three ideas** (this is where the quality comes from):
-1. a **graded rubric** — each dimension scored `{level, signals}`, not one opaque number;
-2. **segment fan-out** — several searches across the talent pools where equivalent people actually
-   work, instead of one broad query;
-3. a **verification pass** — a second, high-effort run that fact-checks the shortlist before ranking.
+Every hard condition is executable: location/employer/seniority use typed fields, while other rules
+use evidence-backed `meets` / `fails` / `unknown` checks with an explicit unknown policy. Exact
+agent-generated employer exclusion lists must be recruiter-confirmed before execution.
 
-Each candidate gets two independent scores: a **match score** (fit to the role; drives the
-ranking) and a **likely-to-move score** (propensity to actually switch jobs, from dated tenure
-signals; display-only, and always exported with the tenure, job-change cadence, and
-seniority-vs-role inputs that justify it). Each row also carries the source citations the Agent API reports for it
-(`output.grounding`), so claims stay checkable.
+Agents with Python and a filesystem use `orchestrator/source_candidates.py`. Agents without them
+follow the Exa MCP procedure linked from `SKILL.md`; no JSON files are required for that path.
 
-Both paths end the same way: write `candidates.csv`, then render it into a self-contained
-`candidates.html` viewer (`python3 orchestrator/render_viewer.py candidates.csv candidates.html`)
-for interactive review — sortable/searchable table, filters, expandable details, clickable
-LinkedIn and source links. The CSV stays the source artifact; the HTML is a view over it.
+## Orchestrator
 
-## Setup
-
-Drop the `exa-candidate-sourcing/` folder into your agent's skills directory (for Kiro:
-`.kiro/skills/exa-candidate-sourcing/` in a workspace, or `~/.kiro/skills/...` globally), then ask
-the agent to "source candidates for <JD url or text>". Files:
-
-- `SKILL.md` — the procedure (plan → checkpoint → run the orchestrator; Steps 2-6 document the pipeline and double as the by-hand fallback).
-- `orchestrator/source_candidates.py` + `orchestrator/config.example.json` — the execution engine and its config template.
-- `references/exa-agent-api.md` — endpoints, effort/cost, query templates, copy-paste curl loop.
-- `references/candidate-schema.json` — the output schema template.
-- `references/scoring-and-calibration.md` — the scoring/calibration/ranking heuristics.
-- `references/worked-example-aws-sa-isv.md` — a complete filled-in plan for the AWS SA ISV role.
-- `orchestrator/render_viewer.py` + `viewer/candidate-viewer.template.html` — the CSV → HTML
-  viewer renderer (stdlib only).
-
-## Running the orchestrator directly (no agent)
+The agent creates an internal config from `orchestrator/config.example.json`. Recruiters should not
+need to edit it.
 
 ```bash
-export EXA_API_KEY=<a key with Agent API access>
-python3 orchestrator/source_candidates.py --config orchestrator/config.example.json --target 50
-# smoke test: add --limit-segments 1 --no-verify
-# need more people after a run? add --more (continues each segment's previous run)
+# One provisional sample across every segment
+python3 orchestrator/source_candidates.py --config config.json --calibrate
+
+# After initial calibration, expand the approved segments and verify the shortlist
+python3 orchestrator/source_candidates.py --config config.json --more --target 50
+
+# On later iterations, instantly re-filter/rescore the fully discovered pool
+python3 orchestrator/source_candidates.py --config config.json --reuse --target 50
 ```
 
-Edit `config.example.json` (role, locations, exclude_employer, dimensions, segments) per role.
-Leave `contact_fields` empty unless the user explicitly asks for contact-ready candidates; when
-requested, add `email`, `phone`, `uri`, or custom `{ "key": ..., "format": ... }` entries.
-Writes `candidates.csv` + `candidates.html` (the interactive viewer, rendered automatically) +
-`candidates.xlsx`, plus `sourcing_state.json` so `--more` can continue the same session later
-(dedupes against everyone already found and keeps verification verdicts).
+Generated runtime files:
 
-## Sample output
+- `sourcing_state.json`: machine-owned cache and current-brief snapshot;
+- `calibration.csv` / `calibration.html`: provisional segment sample;
+- `candidates.csv` / `.xlsx` / `.html`: final deliverables.
 
-`sample-output/candidates.csv` — a real end-to-end run of this pipeline on the
-[AWS "Solutions Architect, ISV"](https://amazon.jobs/en/jobs/10425076/solutions-architect-isv) JD
-(4 segments → 48 found → verified → top 25). Every candidate is verification-confirmed, a strong
-role match, graded on all six rubric dimensions, and has a LinkedIn URL.
+By default these files are written beside `config.json`, not into the installed skill. Use
+`--output-dir` to override that session directory. Every run prints its elapsed seconds and records
+them in `sourcing_state.json`.
 
-## Note on API keys
-
-The Exa Agent API (`/agent/runs`) needs a key with **Agent API access** — a default search key
-returns HTTP 429. Verify with the curl one-liner at the top of `SKILL.md`.
-
-The skill resolves a key in this order: `EXA_API_KEY` in the environment, then `~/.config/exa/key`
-(written by `scripts/set-exa-key.sh`), then a bundled `orchestrator/.exa_key` file.
-
-## Packaging for a customer (pre-keyed, turnkey)
-
-To hand someone a copy that runs with no setup step, drop their key into the bundle:
-
-```bash
-printf '%s' '<the customer key>' > orchestrator/.exa_key   # no trailing newline
-# then zip the skill directory and send it
-```
-
-Because the resolver checks `orchestrator/.exa_key` last, the copy runs out of the box while an
-env var or `~/.config/exa/key` still wins for anyone who has their own key. The pre-flight check in
-`SKILL.md` returns 200 as soon as the bundled key resolves, so the model skips the setup prompt.
-
-Before you send it:
-- **Issue a dedicated key for that customer** — not your own. Scope it to Agent API access, put a
-  spend cap / rate limit on it, and keep it independently revocable. Treat the bundled copy as a
-  secret that can leak (it travels wherever the zip goes) — the spend cap is your real protection.
-- `orchestrator/.exa_key` is `.gitignore`d so a bundled key is never committed to this repo. It
-  lives only in the copy you hand off.
+The durable brief lives in the config. `sourcing_state.json` keeps lightweight calibration rows
+separate from fully graded candidates and preserves high-effort verification facts across
+policy-only changes. A materially changed verification question invalidates those verdicts.

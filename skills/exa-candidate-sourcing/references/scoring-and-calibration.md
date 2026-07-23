@@ -1,9 +1,9 @@
 # Scoring, calibration & ranking
 
-Apply these after discovery (Step 4) and after verification (Step 6). They're simple, transparent
+Apply these after expansion discovery and again after verification. They're simple, transparent
 heuristics — tune the weights for your role. The goal is honest triage, not false precision.
 
-## 1. Dimension score (Step 4)
+## 1. Dimension score
 
 Per candidate, sum the graded dimensions using the weight table for each dimension's scale:
 
@@ -25,7 +25,7 @@ location_bonus    : +4 if the candidate's location matches a target metro, else 
 Do NOT cap the base at 100. The displayed score is a percentage of the rubric's maximum (step 3);
 capping collapses every good candidate onto the same number and the ranking stops discriminating.
 
-## 3. Calibration (Step 6) — keep thin/unconfirmed profiles from floating up
+## 3. Score calibration — keep thin/unconfirmed profiles from floating up
 
 ```
 max_possible = 90 + 6 + n_dimensions * 2 * 1.4 + (4 if you have target metros else 0)
@@ -45,7 +45,7 @@ calibrated = (base - penalty) * 100 / max_possible
 calibrated = round(min(100, max(0, calibrated)))
 ```
 
-## 4. Likely-to-move score (Step 4) — separate from the match score
+## 4. Likely-to-move score — separate from the match score
 
 A 0-100 propensity to actually switch jobs, computed from the `mobility` object with fixed
 weights so it is comparable across segments and batches. It is **display-only**: it never feeds
@@ -87,7 +87,7 @@ reconstruct any score (e.g. 28 mo in current role = the classic move window, avg
 role = habitual mover, `step_up` = a promotion attracts). The bundled viewer composes these
 columns into one "Likely to move" sentence in each candidate's detail row.
 
-## 5. Eligibility filter (Step 6) — drop before ranking
+## 5. Eligibility filter — drop before ranking
 
 Remove a candidate if **any** of:
 - verification `exists == "not_found"`
@@ -95,7 +95,7 @@ Remove a candidate if **any** of:
 - `currently_excluded == true` (they actually work at the excluded employer)
 - they have **neither** a LinkedIn URL **nor** a known company (nothing to act on)
 
-## 6. Final ranking (Step 6)
+## 6. Final ranking
 
 Sort ascending by this key (confirmed + strong matches first, then best calibrated score):
 

@@ -14,11 +14,11 @@ sourced shortlist into the ATS"). Never put raw conversation text in it.
 
 ## Where it plugs into the workflow
 
-- **Entry point — start from an Ashby job (Step 1).** The ergonomic front door: when the user names
+- **Entry point — start the brief from an Ashby job.** The ergonomic front door: when the user names
   or implies a role instead of pasting a JD, pull the JD from Ashby and build the plan from it.
-- **Input side — dedupe against the live pipeline (Step 1 checkpoint).** Pull the people already on
+- **Input side — dedupe against the live pipeline before calibration.** Pull the people already on
   the job and feed them into `exclude_people` / `input.exclusion` so sourcing doesn't re-surface them.
-- **Output side — push the verified shortlist (after Step 6).** Turn the ranked CSV into real
+- **Output side — push the verified shortlist after expansion and verification.** Turn the ranked CSV into real
   candidate records + applications on the job, each with a note carrying the score, rubric, and
   sources. This is where the skill otherwise dead-ends at a file.
 
@@ -41,7 +41,7 @@ search_records_by_name(entityType: "job", query: "<role / job title>", reason: "
 
 Keep the resolved `jobId` for the dedupe and push steps — don't re-resolve it.
 
-## Entry point — pull the JD from an Ashby job (Step 1)
+## Entry point — pull the JD from an Ashby job
 
 When the user starts from a role rather than pasted text, this replaces "read the pasted JD". Two
 hydration calls after you have the `jobId`:
@@ -74,7 +74,7 @@ For each candidate the user chose to push (default suggestion: the confirmed, el
    ```
    create_candidate(
      name,
-     email?, phoneNumber?,              # only if contact fields were enriched (Step 2)
+     email?, phoneNumber?,              # only if contact fields were requested and enriched
      socialLinks: [ { url: "<linkedinUrl>", type: "LINKEDIN" },
                     { url: "<other profile>", type: "GITHUB" | "WEBSITE" | ... } ],
      reason: "..."
@@ -107,7 +107,7 @@ actual candidates already on the job, use `filter_records`:
 2. `filter_records(objectType: "application", filter: <JSON: this job, not archived>,
    resultMode: "summary")` → application summaries (ids + candidate names). Paginate via `cursor`.
 3. For LinkedIn URLs to strengthen the dedupe, `get_candidate(candidateIds: [...])` on the matches.
-4. Feed the collected names (and LinkedIn URLs) into the Step 1 checkpoint's "existing list to
+4. Feed the collected names (and LinkedIn URLs) into the current brief's "existing list to
    dedupe against" → the `exclude_people` config key, or `input.exclusion` when running by hand.
 
 ## Guardrails recap

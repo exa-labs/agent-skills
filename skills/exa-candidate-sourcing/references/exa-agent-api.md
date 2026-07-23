@@ -65,14 +65,21 @@ the rest only some — so a candidate without an entry is normal, not an error.
 
 - `outputSchema` — when set, `output.structured` matches it. Use `additionalProperties:false`,
   list everything in `required`, and bound arrays with `maxItems` so the agent can't omit fields
-  or run up cost. (Full candidate schema: `candidate-schema.json`.)
+  or run up cost. Build the schema dynamically from the current rubric; do not maintain a separate
+  schema file.
+- For each non-standard hard requirement, add a required `hardConstraintChecks.<key>` object with
+  `status ∈ {meets, fails, unknown}` and `signals: string[]`. Require direct public evidence for
+  `meets`/`fails`; never substitute tenure, employer category, or another proxy for the requested
+  fact.
 - `input.exclusion` — pass already-seen names so later segment runs don't all return the same people.
 - `input.data`: structured rows the run should process; give each row a stable `id` and make the
   output schema echo it so results join back exactly (used by the verification pass).
 - `dataSources`: attaches premium Exa Connect partners (e.g. `fiber`, a B2B people database);
   mention the attached source in the query so the agent uses it.
 - `previousRunId`: starts a new run that carries over a completed run's research context; use for
-  "find N more" follow-ups together with `input.exclusion` of everyone already seen.
+  "find N more" follow-ups together with `input.exclusion` of everyone already seen. Continue only
+  when the brief and segment focus are unchanged, and repeat the complete current brief in the new
+  query. Start fresh after a constraint or segment change.
 - Starting several runs at once can hit a 429/5xx rate limit; create runs one at a
   time and retry a failed create once before giving up on a segment.
 - Runs are async and aren't guaranteed to reach `completed` on the first attempt (a run can end
@@ -92,9 +99,9 @@ the rest only some — so a candidate without an entry is normal, not an error.
 | `xhigh` | $1.00 | high-value, completeness over cost |
 | `auto` | variable | scope unknown ahead of time; measured ~7x `medium` per run across 11 JDs (one segment each) with the same verified-real rate, so prefer `medium` here |
 
-## Discovery query template (Step 3)
+## Expansion discovery query template
 
-Fill the `{...}` from your Step-1 search plan; one run per segment:
+Fill the `{...}` from the confirmed current brief; one run per approved segment:
 
 ```
 Find real candidates for: {role}.
@@ -160,7 +167,7 @@ wait_run () {  # $1 = run id -> prints completed run JSON (or nothing on failure
 Start 2–3 segment runs first (collect their ids), then poll them — that runs them concurrently.
 If you have multiple keys, spread runs across them to dodge the per-key concurrency limit.
 
-## Verification pass (Step 5)
+## Verification pass
 
 Run with `effort: "high"`, in batches of ~8 from the shortlist. Send the batch as `input.data`
 rows carrying each candidate's stable dedup key as `id`; the verdict schema echoes the id back

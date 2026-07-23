@@ -6,20 +6,26 @@ Pipeline: graded discovery across talent segments  ->  high-effort verification 
 calibrated ranking  ->  candidates.csv + candidates.html (interactive viewer;
 + candidates.xlsx if openpyxl is installed).
 
+The recommended first pass is a single bounded calibration run across all segments. After recruiter
+feedback, the same config is patched cumulatively; cached candidates are reprocessed before approved
+segments are expanded.
+
 Self-contained (Python stdlib only; openpyxl optional for the .xlsx).
 
 USAGE
   export EXA_API_KEY=...                      # or run scripts/set-exa-key.sh once (stores ~/.config/exa/key)
+  python source_candidates.py --config config.json --calibrate  # 0-2 provisional candidates per segment
+  python source_candidates.py --config config.json --reuse      # refilter/rescore cached pool, no network
   python source_candidates.py --config config.json
   python source_candidates.py --config config.json --no-verify --limit-segments 1   # quick smoke run
   python source_candidates.py --config config.json --more    # continue: fetch more, dedupe, keep verdicts
   python source_candidates.py --config config.json --exclude-file pipeline.txt   # skip an existing list
 
-Edit config.json to point at any role (see config.example.json). The driving agent
-(Claude Code / Devin) fills the config from the JD: rubric dimensions, segments,
-locations, and an optional exclude_employer.
+The driving agent owns config.json (see config.example.json); the recruiter should not need to edit
+it. The script owns sourcing_state.json, which snapshots the current brief signature and cache.
+Artifacts and state default to the config file's directory; use --output-dir to override it.
 """
-import os, sys, json, time, threading, urllib.request, urllib.error, csv, re, argparse
+import os, sys, json, time, threading, urllib.request, urllib.error, csv, re, argparse, hashlib, copy
 
 BASE = "https://api.exa.ai"
 
@@ -48,6 +54,7 @@ KEY = _resolve_key()
 CAP = ["strong", "partial", "none", "unknown"]          # capability scale
 STR = ["none", "weak", "medium", "strong", "unknown"]   # signal-strength scale
 ARR = {"type": "array", "items": {"type": "string"}}
+STATE_VERSION = 4
 
 
 # ----------------------------- HTTP -----------------------------
@@ -157,6 +164,129 @@ def contact_fields(cfg):
     return out
 
 
+def hard_constraints(cfg):
+    """Return the durable eligibility rules. Older configs remain valid: `locations`
+    stays preferred unless `hard_constraints.location_mode` explicitly makes it required."""
+    h = cfg.get("hard_constraints") or {}
+    return {
+        "location_mode": h.get("location_mode", cfg.get("location_mode", "preferred")),
+        "excluded_current_employers": list(h.get("excluded_current_employers") or []),
+        "excluded_current_employers_confirmed": h.get("excluded_current_employers_confirmed", False),
+        "required_seniority_levels": list(h.get("required_seniority_levels") or []),
+        "requirements": list(h.get("requirements") or []),
+    }
+
+
+def excluded_employers(cfg):
+    """All employer exclusions: the hiring company plus recruiter-supplied do-not-source firms."""
+    values = []
+    if cfg.get("exclude_employer"):
+        values.append(cfg["exclude_employer"])
+    values.extend(hard_constraints(cfg)["excluded_current_employers"])
+    return [v for v in values if isinstance(v, str) and v.strip()]
+
+
+def config_signature(cfg):
+    """Hash search intent, not operational knobs such as concurrency/retries."""
+    keys = ("role", "locations", "exclude_employer", "exclude_people", "contact_fields",
+            "rubric_must_haves", "rubric_signals", "dimensions", "segments", "hard_constraints")
+    payload = {k: cfg.get(k) for k in keys}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def verification_signature(cfg):
+    """Hash facts the verifier establishes, excluding eligibility policy and search strategy."""
+    h = hard_constraints(cfg)
+    payload = {
+        "role": cfg.get("role"),
+        "rubric_must_haves": cfg.get("rubric_must_haves"),
+        "required_locations": cfg.get("locations") if h["location_mode"] == "required" else [],
+        "excluded_current_employers": excluded_employers(cfg),
+        "required_seniority_levels": h["required_seniority_levels"],
+        "requirements": [{"key": r.get("key"), "description": r.get("description")}
+                         for r in h["requirements"]],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def validate_config(cfg):
+    segments = cfg.get("segments", [])
+    if not isinstance(segments, list) or not segments or any(not isinstance(s, dict) for s in segments):
+        raise ValueError("segments must be a non-empty array of objects")
+    labels = [s.get("label") for s in segments]
+    if not labels or any(not isinstance(v, str) or not v.strip() for v in labels):
+        raise ValueError("segments must contain at least one non-empty label")
+    if len(labels) != len(set(labels)):
+        raise ValueError("segment labels must be unique")
+    if not all(isinstance(s.get("focus"), str) and s["focus"].strip() for s in cfg["segments"]):
+        raise ValueError("every segment needs a non-empty focus")
+    if cfg.get("hard_constraints") is not None and not isinstance(cfg["hard_constraints"], dict):
+        raise ValueError("hard_constraints must be an object")
+    raw_h = cfg.get("hard_constraints") or {}
+    for field in ("excluded_current_employers", "required_seniority_levels", "requirements"):
+        if raw_h.get(field) is not None and not isinstance(raw_h[field], list):
+            raise ValueError(f"hard_constraints.{field} must be an array")
+    mode = hard_constraints(cfg)["location_mode"]
+    if mode not in ("required", "preferred"):
+        raise ValueError("hard_constraints.location_mode must be required or preferred")
+    sample_size = cfg.get("calibration_per_segment", 2)
+    if not isinstance(sample_size, int) or not 1 <= sample_size <= 2:
+        raise ValueError("calibration_per_segment must be 1 or 2")
+    allowed = {"ic_mid", "ic_senior", "ic_staff_principal", "manager", "director_plus"}
+    unknown = set(hard_constraints(cfg)["required_seniority_levels"]) - allowed
+    if unknown:
+        raise ValueError("unknown required_seniority_levels: " + ", ".join(sorted(unknown)))
+    h = hard_constraints(cfg)
+    if any(not isinstance(v, str) or not v.strip() for v in h["excluded_current_employers"]):
+        raise ValueError("excluded_current_employers must contain non-empty company names")
+    if not isinstance(h["excluded_current_employers_confirmed"], bool):
+        raise ValueError("excluded_current_employers_confirmed must be true or false")
+    if h["excluded_current_employers"] and not h["excluded_current_employers_confirmed"]:
+        raise ValueError("excluded_current_employers must be shown to and confirmed by the recruiter; "
+                         "then set excluded_current_employers_confirmed=true")
+    requirements = h["requirements"]
+    if any(not isinstance(r, dict) for r in requirements):
+        raise ValueError("hard_constraints.requirements must be an array of objects")
+    req_keys = []
+    for r in requirements:
+        if not isinstance(r.get("key"), str) or not re.fullmatch(r"[a-z][a-z0-9_]*", r["key"]):
+            raise ValueError("each hard constraint requirement needs a unique snake_case key")
+        req_keys.append(r["key"])
+        if not isinstance(r.get("description"), str) or not r["description"].strip():
+            raise ValueError(f"hard constraint {r.get('key')!r} needs a description")
+        if r.get("unknown_policy") not in ("exclude", "allow"):
+            raise ValueError(f"hard constraint {r['key']!r} unknown_policy must be exclude or allow")
+    if len(req_keys) != len(set(req_keys)):
+        raise ValueError("hard constraint requirement keys must be unique")
+
+
+def hard_constraint_checks_schema(cfg):
+    requirements = hard_constraints(cfg)["requirements"]
+    if not requirements:
+        return None
+
+    def check_schema():
+        return {"type": "object", "additionalProperties": False,
+                "required": ["status", "signals"],
+                "properties": {
+                    "status": {"type": "string", "enum": ["meets", "fails", "unknown"]},
+                    "signals": ARR,
+                }}
+
+    return {"type": "object", "additionalProperties": False,
+            "required": [r["key"] for r in requirements],
+            "properties": {r["key"]: check_schema() for r in requirements}}
+
+
+def hard_constraint_checks_pass(cfg, checks):
+    checks = checks or {}
+    for requirement in hard_constraints(cfg)["requirements"]:
+        status = (checks.get(requirement["key"]) or {}).get("status", "unknown")
+        if status == "fails" or (status == "unknown" and requirement["unknown_policy"] == "exclude"):
+            return False
+    return True
+
+
 def build_schema(cfg):
     props = {
         "name": {"type": "string"}, "currentTitle": {"type": "string"}, "currentCompany": {"type": "string"},
@@ -167,9 +297,13 @@ def build_schema(cfg):
     for key, fmt in contact_fields(cfg):
         props[key] = {"type": ["string", "null"], "format": fmt}
         req.append(key)
-    if cfg.get("exclude_employer"):
+    if excluded_employers(cfg):
         props["currentlyAtExcludedEmployer"] = {"type": "boolean"}
         req.append("currentlyAtExcludedEmployer")
+    checks_schema = hard_constraint_checks_schema(cfg)
+    if checks_schema:
+        props["hardConstraintChecks"] = checks_schema
+        req.append("hardConstraintChecks")
     for d in cfg["dimensions"]:
         scale = CAP if d.get("scale", "capability") == "capability" else STR
         props[d["key"]] = _grade(scale, d.get("extra"))
@@ -198,6 +332,61 @@ def build_schema(cfg):
                                      "required": req, "properties": props}}}}
 
 
+def build_enrichment_schema(cfg):
+    """The full discovery schema plus a stable ID for upgrading calibration records."""
+    schema = copy.deepcopy(build_schema(cfg))
+    item = schema["properties"]["candidates"]["items"]
+    item["properties"]["sourceId"] = {"type": "string"}
+    item["required"].append("sourceId")
+    return schema
+
+
+def build_calibration_schema(cfg):
+    """A deliberately shallow schema for one representative sample across every segment."""
+    props = {
+        "name": {"type": "string"},
+        "currentTitle": {"type": "string"},
+        "currentCompany": {"type": "string"},
+        "location": {"type": ["string", "null"]},
+        "linkedinUrl": {"type": ["string", "null"]},
+        "seniorityLevel": {"type": "string", "enum": ["ic_mid", "ic_senior",
+                           "ic_staff_principal", "manager", "director_plus", "unknown"]},
+        "fitSummary": {"type": "string"},
+        "concerns": ARR,
+    }
+    required = list(props)
+    if excluded_employers(cfg):
+        props["currentlyAtExcludedEmployer"] = {"type": "boolean"}
+        required.append("currentlyAtExcludedEmployer")
+    checks_schema = hard_constraint_checks_schema(cfg)
+    if checks_schema:
+        props["hardConstraintChecks"] = checks_schema
+        required.append("hardConstraintChecks")
+    candidate = {"type": "object", "additionalProperties": False,
+                 "required": required, "properties": props}
+    segment_props = {}
+    for seg in cfg["segments"]:
+        segment_props[seg["label"]] = {
+            "type": "object", "additionalProperties": False,
+            "required": ["coverage", "notes", "candidates"],
+            "properties": {
+                "coverage": {"type": "string", "enum": ["found", "weak", "none"]},
+                "notes": {"type": "string"},
+                "candidates": {"type": "array", "maxItems": cfg.get("calibration_per_segment", 2),
+                               "items": candidate},
+            },
+        }
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object", "additionalProperties": False, "required": ["segmentResults"],
+        "properties": {"segmentResults": {
+            "type": "object", "additionalProperties": False,
+            "required": [s["label"] for s in cfg["segments"]],
+            "properties": segment_props,
+        }},
+    }
+
+
 # ----------------------------- queries --------------------------
 def _providers(cfg):
     return [d.strip() for d in cfg.get("data_sources", []) if isinstance(d, str) and d.strip()]
@@ -209,11 +398,25 @@ def discovery_query(cfg, segment):
          "NICE-TO-HAVE signals: " + " ".join(cfg.get("rubric_signals", [])),
          f"FOCUS for this search (verify independently — do NOT treat as ground truth): {segment['focus']}",
          f"Strongly prioritize people based in or near: {', '.join(cfg.get('locations', [])) or 'any location'}."]
-    if cfg.get("exclude_employer"):
-        p.append(f"EXCLUDE anyone currently employed at {cfg['exclude_employer']}; set "
+    excluded = excluded_employers(cfg)
+    if excluded:
+        p.append(f"EXCLUDE anyone currently employed at any of: {', '.join(excluded)}; set "
                  "currentlyAtExcludedEmployer=true if they are and then do NOT include them. Do not bias toward "
                  "that employer's own job-title vocabulary — value the transferable profile and equivalent roles "
                  "at other companies.")
+    h = hard_constraints(cfg)
+    if h["location_mode"] == "required" and cfg.get("locations"):
+        p.append(f"HARD REQUIREMENT: candidate must be based in or near one of: {', '.join(cfg['locations'])}. "
+                 "Do not include candidates elsewhere or with an unknown location.")
+    if h["required_seniority_levels"]:
+        p.append("HARD REQUIREMENT: candidate seniority must be one of: "
+                 + ", ".join(h["required_seniority_levels"]) + ".")
+    if h["requirements"]:
+        p.append("ADDITIONAL HARD REQUIREMENTS:\n" + "\n".join(
+            f"- {r['key']}: {r['description']}" for r in h["requirements"]))
+        p.append("Return hardConstraintChecks for every additional hard requirement. Use meets or fails only "
+                 "with direct public evidence and put that evidence in signals; otherwise use unknown. Do not use "
+                 "short job tenure, employer category, or another demographic/professional proxy as evidence.")
     p.append("For EACH candidate, grade every rubric dimension with a level and the concrete public signals that "
              "justify it, plus an overallFit (tier, confidence, signalsUsed, concerns).")
     p.append("For EACH candidate, also fill mobility from their dated public work history: monthsInCurrentRole "
@@ -244,14 +447,73 @@ def discovery_query(cfg, segment):
     return "\n\n".join(p)
 
 
+def enrichment_query(cfg):
+    base = discovery_query(cfg, {"focus": "Only the exact calibration profiles supplied in input.data."})
+    return (base + "\n\nThis is targeted enrichment, not discovery. Fully research every supplied row and "
+            "return no one else. Copy its id unchanged into sourceId. Return exactly one completed full-rubric "
+            "candidate record per row when the identity can be resolved; omit an unresolved row rather than "
+            "substituting another person.")
+
+
+def calibration_query(cfg):
+    limit = cfg.get("calibration_per_segment", 2)
+    h = hard_constraints(cfg)
+    parts = [
+        f"Run a lightweight talent-pool calibration for: {cfg['role']}.",
+        "MUST-HAVES: " + " ".join(cfg.get("rubric_must_haves", [])),
+        "PREFERRED SIGNALS: " + " ".join(cfg.get("rubric_signals", [])),
+        "Return up to " + str(limit) + " representative, real candidates for EACH segment below. "
+        "This is a provisional sample to help a recruiter decide which pools to expand, not a final shortlist.",
+    ]
+    for seg in cfg["segments"]:
+        parts.append(f"SEGMENT {seg['label']}: {seg['focus']}")
+    if cfg.get("locations"):
+        strength = "HARD REQUIREMENT" if h["location_mode"] == "required" else "PRIORITIZE"
+        parts.append(f"{strength}: {', '.join(cfg['locations'])}.")
+    if excluded_employers(cfg):
+        parts.append("HARD EXCLUSION: do not return current employees of: "
+                     + ", ".join(excluded_employers(cfg)) + ".")
+    if h["required_seniority_levels"]:
+        parts.append("HARD REQUIREMENT: seniority must be one of: "
+                     + ", ".join(h["required_seniority_levels"]) + ".")
+    if h["requirements"]:
+        parts.append("ADDITIONAL HARD REQUIREMENTS:\n" + "\n".join(
+            f"- {r['key']}: {r['description']}" for r in h["requirements"]))
+        parts.append("Return hardConstraintChecks for each additional requirement. Mark meets or fails only from "
+                     "direct public evidence; otherwise mark unknown. Never substitute tenure patterns, employer "
+                     "category, or another proxy for the requested fact.")
+    parts += [
+        "Assign each person to exactly one best-fit segment and never repeat a person across segments.",
+        "For every segment return coverage=found, weak, or none. If no credible candidate satisfies the hard "
+        "requirements, return an empty candidates array instead of weakening a requirement or inventing someone.",
+        "Keep research shallow: confirm current title, company, location, and a plausible LinkedIn URL; provide a "
+        "brief fitSummary and concerns. Do not research contact details, mobility, or full rubric grades.",
+        "Never fabricate a person, employer, location, or URL. Use null when a LinkedIn URL or location is unsupported.",
+    ]
+    return "\n\n".join(parts)
+
+
 def verify_query(cfg):
     head = (f"Fact-check this recruiting shortlist for: {cfg['role']}. The input data has one row per person "
             "with an id and their claimed name, title, company, location, and LinkedIn URL. For EACH row, use "
             "web search to determine: (1) are they a real, currently-active professional matching the claimed "
             "name/title/company; (2) does the LinkedIn URL plausibly belong to them; (3) how well does their real "
             "background match the role")
-    if cfg.get("exclude_employer"):
-        head += f"; (4) do they CURRENTLY work at {cfg['exclude_employer']} (set currently_excluded=true if so)"
+    if cfg.get("rubric_must_haves"):
+        head += ". Role must-haves: " + " ".join(cfg["rubric_must_haves"])
+    h = hard_constraints(cfg)
+    if h["location_mode"] == "required" and cfg.get("locations"):
+        head += ". Hard location requirement: " + ", ".join(cfg["locations"])
+    if h["required_seniority_levels"]:
+        head += ". Hard seniority requirement: " + ", ".join(h["required_seniority_levels"])
+    if h["requirements"]:
+        head += ". Additional hard requirements: " + " ".join(
+            f"{r['key']}: {r['description']}" for r in h["requirements"])
+        head += (". Return hardConstraintChecks using direct public evidence only; use unknown rather than a "
+                 "proxy or inference when evidence is absent")
+    if excluded_employers(cfg):
+        head += ("; (4) do they CURRENTLY work at any excluded employer ("
+                 + ", ".join(excluded_employers(cfg)) + "; set currently_excluded=true if so)")
     head += (". Be skeptical: if you cannot find evidence, mark exists 'uncertain' or 'not_found'. Return "
              "exactly one verdict per row, copying the row's id into the verdict's id field unchanged.")
     return head
@@ -266,12 +528,18 @@ def verify_schema(cfg):
              "linkedin_valid": {"type": "string", "enum": ["valid", "unverifiable", "wrong"]},
              "matches_role": {"type": "string", "enum": ["strong", "partial", "weak", "no"]},
              "verified_title_company": {"type": "string"}}
-    if cfg.get("exclude_employer"):
+    required = ["id", "name", "exists", "matches_role"]
+    if excluded_employers(cfg):
         props["currently_excluded"] = {"type": "boolean"}
+        required.append("currently_excluded")
+    checks_schema = hard_constraint_checks_schema(cfg)
+    if checks_schema:
+        props["hardConstraintChecks"] = checks_schema
+        required.append("hardConstraintChecks")
     return {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object",
             "additionalProperties": False, "required": ["verdicts"],
             "properties": {"verdicts": {"type": "array", "items": {
-                "type": "object", "additionalProperties": False, "required": ["id", "name", "exists", "matches_role"],
+                "type": "object", "additionalProperties": False, "required": required,
                 "properties": props}}}}
 
 
@@ -288,11 +556,9 @@ def _key(c):
 
 def discovery_body(cfg, schema, seg, excl, prev_rid=None):
     if prev_rid:
-        q = (f"Find up to {cfg.get('max_per_call', 12)} MORE candidates matching the same brief, excluding "
-             "everyone already returned and everyone in the exclusion list. Apply the same rubric grading, "
-             "mobility (dated work-history) fields, and anti-fabrication rules as before.")
-        if cfg.get("exclude_employer"):
-            q += f" Still exclude anyone currently employed at {cfg['exclude_employer']}."
+        q = (discovery_query(cfg, seg) + "\n\nCONTINUATION: find MORE candidates under this complete current "
+             "brief, excluding everyone already returned and everyone in input.exclusion. The current brief above "
+             "is authoritative; never weaken one of its hard requirements based on prior-run context.")
     else:
         q = discovery_query(cfg, seg)
     body = {"query": q, "effort": cfg.get("discovery_effort", "medium"), "outputSchema": schema}
@@ -303,6 +569,73 @@ def discovery_body(cfg, schema, seg, excl, prev_rid=None):
     if _providers(cfg):
         body["dataSources"] = [{"provider": p} for p in _providers(cfg)]
     return body
+
+
+def calibrate_segments(cfg):
+    """Run one bounded sampler across all proposed segments."""
+    body = {"query": calibration_query(cfg),
+            "effort": cfg.get("calibration_effort", "medium"),
+            "outputSchema": build_calibration_schema(cfg)}
+    if _providers(cfg):
+        body["dataSources"] = [{"provider": p} for p in _providers(cfg)]
+    rid, run = run_to_completion(body, label="calibration", attempts=cfg.get("max_attempts", 3))
+    if run is None:
+        return [], {}, None
+    structured = ((run.get("output") or {}).get("structured") or {}).get("segmentResults") or {}
+    candidates, coverage = [], {}
+    for seg in cfg["segments"]:
+        result = structured.get(seg["label"]) or {}
+        coverage[seg["label"]] = {"coverage": result.get("coverage", "none"),
+                                  "notes": result.get("notes", "")}
+        for c in result.get("candidates") or []:
+            c["_segment"] = seg["label"]
+            c["_record_kind"] = "calibration"
+            candidates.append(c)
+    return candidates, coverage, rid
+
+
+def is_full_candidate(cfg, c):
+    """Calibration rows intentionally lack these fields and must never be ranked as full records."""
+    if not all(isinstance(c.get(k), dict) for k in ("seniority", "overallFit", "mobility")):
+        return False
+    return all(isinstance(c.get(d["key"]), dict) for d in cfg.get("dimensions", []))
+
+
+def enrich_calibration_candidates(cfg, candidates):
+    """Upgrade lightweight calibration rows before they enter discovery scoring or final output."""
+    if not candidates:
+        return []
+    limit = max(1, cfg.get("max_per_call", 12))
+    schema = build_enrichment_schema(cfg)
+    attempts = cfg.get("max_attempts", 3)
+    enriched = []
+    for start in range(0, len(candidates), limit):
+        batch = candidates[start:start + limit]
+        rows = [{"id": _key(c), "name": c.get("name"), "claimed_title": c.get("currentTitle"),
+                 "claimed_company": c.get("currentCompany"), "claimed_location": c.get("location"),
+                 "linkedin_url": c.get("linkedinUrl")} for c in batch]
+        body = {"query": enrichment_query(cfg), "effort": cfg.get("discovery_effort", "medium"),
+                "outputSchema": schema, "input": {"data": rows}}
+        if _providers(cfg):
+            body["dataSources"] = [{"provider": p} for p in _providers(cfg)]
+        _rid, run = run_to_completion(body, label="calibration enrichment", attempts=attempts)
+        if run is None:
+            continue
+        out = run.get("output") or {}
+        found = (out.get("structured") or {}).get("candidates") or []
+        originals = {_key(c): c for c in batch}
+        grounded = grounding_by_index(out.get("grounding"))
+        for idx, c in enumerate(found):
+            original = originals.get(c.pop("sourceId", ""))
+            if original is None or not is_full_candidate(cfg, c):
+                continue
+            c["_segment"] = original.get("_segment")
+            c["_record_kind"] = "full"
+            if idx in grounded:
+                c["_sources"] = grounded[idx]
+            enriched.append(c)
+        print(f"  [calibration enrichment] {len(enriched)} full records so far")
+    return enriched
 
 
 def discover(cfg, schema, segments, concurrency, prev_run_ids=None, seen_names=None):
@@ -330,6 +663,7 @@ def discover(cfg, schema, segments, concurrency, prev_run_ids=None, seen_names=N
             grounded = grounding_by_index(out.get("grounding"))
             for idx, c in enumerate(cands):
                 c["_segment"] = seg["label"]
+                c["_record_kind"] = "full"
                 if idx in grounded:
                     c["_sources"] = grounded[idx]
             results[seg["label"]] = cands
@@ -408,13 +742,62 @@ def excluded_people(cfg, path=None):
 
 
 def is_excluded(cfg, c):
-    if not cfg.get("exclude_employer"):
+    employers = excluded_employers(cfg)
+    if not employers:
         return False
     if c.get("currentlyAtExcludedEmployer") is True:
         return True
-    terms = [t.strip().lower() for t in re.split(r"[\/,]", cfg["exclude_employer"]) if t.strip()]
+    terms = []
+    for employer in employers:
+        terms.extend(t.strip().lower() for t in re.split(r"[\/,]", employer) if t.strip())
     co = (c.get("currentCompany") or "").lower()
     return any(t in co for t in terms)
+
+
+def location_matches(cfg, c):
+    loc = (c.get("location") or "").lower()
+    return bool(loc and any(w.lower().split(",")[0][:6] in loc for w in cfg.get("locations", [])))
+
+
+def passes_hard_constraints(cfg, c):
+    if is_excluded(cfg, c):
+        return False
+    h = hard_constraints(cfg)
+    if h["location_mode"] == "required" and cfg.get("locations") and not location_matches(cfg, c):
+        return False
+    levels = h["required_seniority_levels"]
+    if levels:
+        actual = (((c.get("seniority") or {}).get("level")) or c.get("seniorityLevel") or "").lower()
+        if actual not in {v.lower() for v in levels}:
+            return False
+    return hard_constraint_checks_pass(cfg, candidate_hard_checks(c))
+
+
+def candidate_hard_checks(c):
+    """Prefer high-effort verification over discovery-era checks, including on --reuse."""
+    if "_hard_checks" in c and isinstance(c.get("_hard_checks"), dict):
+        return c["_hard_checks"]
+    return c.get("hardConstraintChecks") or {}
+
+
+def apply_verdict(c, verdict):
+    """Attach one authoritative verification verdict without downgrading to discovery evidence."""
+    if not verdict:
+        return
+    c["_exists"] = verdict.get("exists", "unchecked")
+    c["_match"] = verdict.get("matches_role", "unchecked")
+    c["_vexcl"] = verdict.get("currently_excluded", None)
+    if "hardConstraintChecks" in verdict:
+        c["_hard_checks"] = verdict["hardConstraintChecks"]
+
+
+def eligible_after_verification(cfg, c):
+    return (c.get("_exists", "unchecked") != "not_found"
+            and c.get("_match", "unchecked") != "no"
+            and c.get("_vexcl") is not True
+            and hard_constraint_checks_pass(cfg, candidate_hard_checks(c))
+            and not (not (c.get("linkedinUrl") or "").strip()
+                     and (c.get("currentCompany") or "").strip().lower() in ("", "unknown", "n/a")))
 
 
 def lvl(c, k):
@@ -431,8 +814,7 @@ def score(cfg, c):
     tier = {"exceptional": 90, "strong": 76, "moderate": 58, "weak": 38, "unknown": 50}.get(
         (c.get("overallFit") or {}).get("tier", "unknown"), 50)
     conf = {"high": 6, "medium": 0, "low": -6}.get((c.get("overallFit") or {}).get("confidence", "medium"), 0)
-    loc = (c.get("location") or "").lower()
-    metro = any(w.lower().split(",")[0][:6] in loc for w in cfg.get("locations", [])) if loc else False
+    metro = location_matches(cfg, c)
     return tier + conf + s * 1.4 + (4 if metro else 0), metro
 
 
@@ -527,14 +909,75 @@ def verify(cfg, candidates, concurrency):
 
 
 # ----------------------------- output ---------------------------
-def write_outputs(cfg, final):
+def hard_check_statuses(cfg, c):
+    checks = candidate_hard_checks(c)
+    return [(checks.get(r["key"]) or {}).get("status", "unknown")
+            for r in hard_constraints(cfg)["requirements"]]
+
+
+def hard_check_signals(cfg, c):
+    checks = candidate_hard_checks(c)
+    values = []
+    for r in hard_constraints(cfg)["requirements"]:
+        check = checks.get(r["key"]) or {}
+        signals = check.get("signals") or []
+        if signals:
+            values.append(f"{r['key']}: " + "; ".join(signals[:2]))
+    return " | ".join(values)
+
+
+def write_calibration_outputs(cfg, candidates, coverage, output_dir):
+    csv_path = os.path.join(output_dir, "calibration.csv")
+    html_path = os.path.join(output_dir, "calibration.html")
+    try:
+        os.remove(html_path)
+    except FileNotFoundError:
+        pass
+    req_cols = ["hard_" + r["key"] for r in hard_constraints(cfg)["requirements"]]
+    cols = ["segment", "coverage", "name", "linkedinUrl", "currentTitle", "currentCompany",
+            "location", "seniority", "fit_summary"] + req_cols + ["hard_constraint_signals",
+            "concerns", "segment_notes"]
+    with open(csv_path, "w", newline="") as fh:
+        w = csv.writer(fh); w.writerow(cols)
+        for c in candidates:
+            seg = c.get("_segment", "")
+            meta = coverage.get(seg) or {}
+            w.writerow([seg, meta.get("coverage", ""), c.get("name"), c.get("linkedinUrl"),
+                        c.get("currentTitle"), c.get("currentCompany"), c.get("location"),
+                        c.get("seniorityLevel"), c.get("fitSummary")] + hard_check_statuses(cfg, c) +
+                       [hard_check_signals(cfg, c),
+                        " | ".join(c.get("concerns") or []), meta.get("notes", "")])
+    print(f"wrote {csv_path} ({len(candidates)} provisional candidates)")
+    try:
+        try:
+            import render_viewer
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import render_viewer
+        render_viewer.render(csv_path, html_path,
+                             title=(cfg.get("role") or "Candidates") + " — segment calibration")
+    except (Exception, SystemExit) as e:
+        print(f"(calibration.html skipped: {e})")
+
+
+def write_outputs(cfg, final, output_dir):
+    csv_path = os.path.join(output_dir, "candidates.csv")
+    xlsx_path = os.path.join(output_dir, "candidates.xlsx")
+    html_path = os.path.join(output_dir, "candidates.html")
+    # Never leave an older viewer/workbook beside a newly generated CSV if optional rendering fails.
+    for stale_path in (xlsx_path, html_path):
+        try:
+            os.remove(stale_path)
+        except FileNotFoundError:
+            pass
     dims = [d["key"] for d in cfg["dimensions"]]
+    req_cols = ["hard_" + r["key"] for r in hard_constraints(cfg)["requirements"]]
     contacts = [key for key, _ in contact_fields(cfg)]
     cols = ["rank", "name", "linkedinUrl", "currentTitle", "currentCompany", "location",
             "score", "likely_to_move",
             "months_in_current_role", "avg_months_per_prior_role", "seniority_vs_role",
             "mobility_signals", "overall_tier", "confidence"] \
-        + dims + contacts + ["seniority", "concerns", "verify_exists", "verify_match",
+        + dims + req_cols + contacts + ["hard_constraint_signals", "seniority", "concerns", "verify_exists", "verify_match",
                   "sources", "segment"]
 
     def row(i, c):
@@ -552,16 +995,17 @@ def write_outputs(cfg, final):
                 vs_role if vs_role in ("step_up", "aligned", "step_down") else "",
                 " | ".join((mob.get("signals") or [])[:3]),
                 of.get("tier"), of.get("confidence")] + [lvl(c, k) for k in dims] \
+            + hard_check_statuses(cfg, c) \
             + [c.get(key) for key in contacts] \
-            + [(c.get("seniority") or {}).get("level"), " | ".join((of.get("concerns") or [])[:2]),
+            + [hard_check_signals(cfg, c), (c.get("seniority") or {}).get("level"), " | ".join((of.get("concerns") or [])[:2]),
                c.get("_exists", ""), c.get("_match", ""),
                " | ".join(c.get("_sources") or []), c.get("_segment")]
 
-    with open("candidates.csv", "w", newline="") as fh:
+    with open(csv_path, "w", newline="") as fh:
         w = csv.writer(fh); w.writerow(cols)
         for i, c in enumerate(final, 1):
             w.writerow(row(i, c))
-    print(f"wrote candidates.csv ({len(final)} rows)")
+    print(f"wrote {csv_path} ({len(final)} rows)")
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
@@ -572,7 +1016,7 @@ def write_outputs(cfg, final):
         for i, c in enumerate(final, 1):
             ws.append(row(i, c))
         ws.freeze_panes = "C2"
-        wb.save("candidates.xlsx"); print("wrote candidates.xlsx")
+        wb.save(xlsx_path); print(f"wrote {xlsx_path}")
     except ImportError:
         print("(openpyxl not installed — skipped .xlsx; `pip install openpyxl` for the formatted sheet)")
     try:
@@ -581,93 +1025,214 @@ def write_outputs(cfg, final):
         except ImportError:
             sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
             import render_viewer
-        render_viewer.render("candidates.csv", "candidates.html", title=cfg.get("role") or "Candidates")
+        render_viewer.render(csv_path, html_path, title=cfg.get("role") or "Candidates")
     except (Exception, SystemExit) as e:
         print(f"(candidates.html skipped: {e})")
 
 
 # ----------------------------- main -----------------------------
+def state_verification_signature(state):
+    if state.get("verification_signature"):
+        return state["verification_signature"]
+    snapshot = state.get("config_snapshot")
+    return verification_signature(snapshot) if isinstance(snapshot, dict) else None
+
+
+def reusable_verdicts(state, current_verification_signature):
+    """Read v4 caches, or a compatible v1-v3 cache after a policy-only config change."""
+    caches = state.get("verdicts_by_search") or {}
+    if isinstance(caches.get(current_verification_signature), dict):
+        return dict(caches[current_verification_signature])
+    if state_verification_signature(state) != current_verification_signature:
+        return {}
+    legacy = caches.get(state.get("config_signature"))
+    if isinstance(legacy, dict):
+        return dict(legacy)
+    return dict(state.get("verdicts") or {})
+
+
 def main():
+    started = time.monotonic()
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
+    ap.add_argument("--output-dir",
+                    help="artifact directory; defaults to the directory containing --config")
     ap.add_argument("--target", type=int, default=50, help="how many candidates to keep")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="run one lightweight sampler across every segment, then stop for recruiter feedback")
+    ap.add_argument("--reuse", action="store_true",
+                    help="apply the current config to the cached pool without discovery or verification")
     ap.add_argument("--no-verify", action="store_true")
     ap.add_argument("--limit-segments", type=int, default=0, help="use only the first N segments (smoke test)")
     ap.add_argument("--max-concurrent", type=int, default=0, help="override config concurrency")
     ap.add_argument("--more", action="store_true",
                     help="continue the previous session's runs (previousRunId) and fetch new people")
-    ap.add_argument("--state", default="sourcing_state.json", help="session state file, enables --more")
+    ap.add_argument("--state", help="session state file; defaults to <output-dir>/sourcing_state.json")
     ap.add_argument("--exclude-file",
                     help="file of names or LinkedIn URLs (one per line) to exclude — an existing "
                          "pipeline/ATS list; merged with the config's exclude_people")
     a = ap.parse_args()
-    cfg = json.load(open(a.config))
+    if a.calibrate and (a.more or a.reuse):
+        ap.error("--calibrate cannot be combined with --more or --reuse")
+    if a.more and a.reuse:
+        ap.error("--more and --reuse are different refinement modes; choose one")
+    config_path = os.path.abspath(a.config)
+    with open(config_path) as fh:
+        cfg = json.load(fh)
+    try:
+        validate_config(cfg)
+    except ValueError as e:
+        sys.exit(f"ERROR: invalid config: {e}")
+    output_dir = os.path.abspath(a.output_dir) if a.output_dir else os.path.dirname(config_path)
+    os.makedirs(output_dir, exist_ok=True)
+    state_path = os.path.abspath(a.state) if a.state else os.path.join(output_dir, "sourcing_state.json")
     segments = cfg["segments"][:a.limit_segments] if a.limit_segments else cfg["segments"]
     conc = a.max_concurrent or cfg.get("concurrency", 2)
-    schema = build_schema(cfg)
+    sig = config_signature(cfg)
+    verify_sig = verification_signature(cfg)
 
-    state = {"run_ids": {}, "pool": [], "verdicts": {}}
-    if a.more:
-        if not os.path.exists(a.state):
-            sys.exit(f"ERROR: --more continues a previous session, but {a.state} was not found.")
-        state = json.load(open(a.state))
+    state = {"version": STATE_VERSION, "config_signature": None, "config_snapshot": None,
+             "verification_signature": None, "run_ids": {}, "pool": [],
+             "calibration_pool": [], "verdicts_by_search": {}}
+    if a.more or a.reuse:
+        if not os.path.exists(state_path):
+            sys.exit(f"ERROR: this mode needs a previous session, but {state_path} was not found.")
+        with open(state_path) as fh:
+            state = json.load(fh)
+
+    if a.calibrate:
+        print(f"== calibration: one run across {len(segments)} segments ==")
+        calibration_cfg = dict(cfg); calibration_cfg["segments"] = segments
+        candidates, coverage, rid = calibrate_segments(calibration_cfg)
+        candidates = [c for c in candidates if passes_hard_constraints(cfg, c)]
+        write_calibration_outputs(cfg, candidates, coverage, output_dir)
+        elapsed = round(time.monotonic() - started, 2)
+        with open(state_path, "w") as fh:
+            json.dump({"version": STATE_VERSION, "config_signature": sig, "config_snapshot": cfg,
+                       "verification_signature": verify_sig,
+                       "run_ids": {}, "calibration_run_id": rid, "calibration_coverage": coverage,
+                       "pool": [], "calibration_pool": candidates, "verdicts_by_search": {},
+                       "last_run": {"mode": "calibrate", "elapsed_seconds": elapsed,
+                                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}, fh)
+        print(f"wrote {state_path}; calibration completed in {elapsed:.2f}s")
+        print("collect feedback, keep only approved segments in the config, then use --more")
+        return
+
+    schema = build_schema(cfg)
 
     excl_names, excl_keys = excluded_people(cfg, a.exclude_file)
     if excl_keys:
         print(f"== excluding {len(excl_keys)} people from the recruiter's list ==")
 
-    by = {_key(c): c for c in state["pool"] if _key(c) not in excl_keys}
+    previous_verify_sig = state_verification_signature(state)
+    verification_compatible = previous_verify_sig == verify_sig
+    verdicts = reusable_verdicts(state, verify_sig)
+    cached_by, by = {}, {}
+    calibration_pool = list(state.get("calibration_pool") or [])
+    for original in state.get("pool", []):
+        c = copy.deepcopy(original)
+        if not is_full_candidate(cfg, c):
+            calibration_pool.append(c)  # backward compatibility with v1-v3 calibration state
+            continue
+        if not verification_compatible:
+            for key in ("_exists", "_match", "_vexcl", "_hard_checks"):
+                c.pop(key, None)
+            if hard_constraints(cfg)["requirements"]:
+                c["hardConstraintChecks"] = {}
+        else:
+            apply_verdict(c, verdicts.get(_key(c)))
+        c["_score"], c["_metro"] = score(cfg, c)
+        cached_by[_key(c)] = c
+        if _key(c) not in excl_keys and passes_hard_constraints(cfg, c):
+            by[_key(c)] = c
     # excl_names lead so they seed input.exclusion even on the first (non-continuation) run
     seen = excl_names + [c["name"] for c in by.values() if c.get("name")]
 
-    print(f"== discovery: {len(segments)} segments, {conc} concurrent{' (continuation)' if a.more else ''} ==")
-    raw, run_ids = discover(cfg, schema, segments, conc,
-                            prev_run_ids=state["run_ids"] if a.more else None, seen_names=seen)
+    brief_changed = bool(state.get("config_signature") and state.get("config_signature") != sig)
+    raw, run_ids = [], {}
+    approved_labels = {s["label"] for s in segments}
+    selected_calibration = [c for c in calibration_pool if c.get("_segment") in approved_labels]
+    remaining_calibration = list(calibration_pool)
+    if a.reuse:
+        print(f"== reuse: reprocessing {len(by)} cached candidates under the current brief ==")
+        if selected_calibration:
+            print(f"== {len(selected_calibration)} calibration-only records skipped; use --more to enrich them ==")
+    else:
+        if selected_calibration:
+            print(f"== enriching {len(selected_calibration)} calibration records with the full rubric ==")
+            enriched = enrich_calibration_candidates(cfg, selected_calibration)
+            raw.extend(enriched)
+            enriched_keys = {_key(c) for c in enriched}
+            remaining_calibration = [c for c in calibration_pool if _key(c) not in enriched_keys]
+            seen.extend(c["name"] for c in enriched if c.get("name"))
+        continuing = a.more and not brief_changed and bool(state.get("run_ids"))
+        if a.more and brief_changed:
+            print("== brief changed: preserving the cached pool and starting fresh discovery for the current "
+                  "segments; compatible verified facts remain authoritative ==")
+        print(f"== discovery: {len(segments)} segments, {conc} concurrent"
+              f"{' (continuation)' if continuing else ''} ==")
+        discovered, run_ids = discover(cfg, schema, segments, conc,
+                                       prev_run_ids=state.get("run_ids", {}) if continuing else None,
+                                       seen_names=seen)
+        raw.extend(discovered)
 
-    # dedup + drop excluded + score
+    # Deduplicate the durable cache, while building a separate currently eligible scoring pool.
     for c in raw:
-        if is_excluded(cfg, c) or _key(c) in excl_keys:
+        if not is_full_candidate(cfg, c):
             continue
         c["_score"], c["_metro"] = score(cfg, c)
         k = _key(c)
-        if k.replace("nm:", "").strip() and (k not in by or c["_score"] > by[k]["_score"]):
+        if not k.replace("nm:", "").strip():
+            continue
+        if k not in cached_by or c["_score"] > cached_by[k]["_score"]:
+            cached_by[k] = c
+        if (k not in excl_keys and passes_hard_constraints(cfg, c)
+                and (k not in by or c["_score"] > by[k]["_score"])):
             by[k] = c
     pool = sorted(by.values(), key=lambda x: -x["_score"])
+    cached_pool = sorted(cached_by.values(), key=lambda x: -x.get("_score", 0))
     print(f"== {len(raw)} raw -> {len(pool)} unique (non-excluded) ==")
 
-    verdicts = state.get("verdicts", {})
+    verdicts_by_search = state.get("verdicts_by_search") or {}
     shortlist = pool[:max(a.target + 14, a.target)]
-    if not a.no_verify and shortlist:
+    if not a.no_verify and not a.reuse and shortlist:
         unchecked = [c for c in shortlist if _key(c) not in verdicts]
         if unchecked:
             print(f"== verification: {len(unchecked)} of top {len(shortlist)} (effort {cfg.get('verify_effort','high')}) ==")
             verdicts.update(verify(cfg, unchecked, conc))
     for c in shortlist:
         v = verdicts.get(_key(c), {})
-        c["_exists"], c["_match"] = v.get("exists", "unchecked"), v.get("matches_role", "unchecked")
-        c["_vexcl"] = v.get("currently_excluded", None)
+        apply_verdict(c, v)
+        c.setdefault("_exists", "unchecked")
+        c.setdefault("_match", "unchecked")
+        c.setdefault("_vexcl", None)
     erank = {"confirmed": 0, "likely": 1, "uncertain": 2, "unchecked": 2, "not_found": 3}
     mrank = {"strong": 0, "partial": 1, "weak": 2, "unchecked": 1, "no": 3}
 
-    def eligible(c):
-        return (c.get("_exists", "unchecked") != "not_found" and c.get("_match", "unchecked") != "no"
-                and c.get("_vexcl") is not True
-                and not (not (c.get("linkedinUrl") or "").strip()
-                         and (c.get("currentCompany") or "").strip().lower() in ("", "unknown", "n/a")))
-
     for c in shortlist:
         c["_calib"] = calibrate(cfg, c)
-    elig = sorted([c for c in shortlist if eligible(c)],
+    elig = sorted([c for c in shortlist if eligible_after_verification(cfg, c)],
                   key=lambda c: (erank.get(c.get("_exists", "unchecked"), 2),
                                  mrank.get(c.get("_match", "unchecked"), 1), -c["_calib"]))
     final = elig[:a.target]
     print(f"== final: {len(final)} candidates ==")
-    write_outputs(cfg, final)
+    write_outputs(cfg, final, output_dir)
 
     # newest run ids win so the next --more continues from the latest round
-    json.dump({"run_ids": {**state.get("run_ids", {}), **run_ids}, "pool": pool, "verdicts": verdicts},
-              open(a.state, "w"))
-    print(f"wrote {a.state} (rerun with --more to fetch additional candidates)")
+    verdicts_by_search[verify_sig] = verdicts
+    effective_run_ids = ({**state.get("run_ids", {}), **run_ids}
+                         if a.more and not brief_changed else run_ids)
+    elapsed = round(time.monotonic() - started, 2)
+    with open(state_path, "w") as fh:
+        json.dump({"version": STATE_VERSION, "config_signature": sig, "config_snapshot": cfg,
+                   "verification_signature": verify_sig,
+                   "run_ids": effective_run_ids, "pool": cached_pool,
+                   "calibration_pool": remaining_calibration,
+                   "verdicts_by_search": verdicts_by_search,
+                   "last_run": {"mode": "reuse" if a.reuse else "expand",
+                                "elapsed_seconds": elapsed,
+                                "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}, fh)
+    print(f"wrote {state_path}; completed in {elapsed:.2f}s (rerun with --more for additional candidates)")
 
 
 if __name__ == "__main__":

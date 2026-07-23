@@ -2,6 +2,14 @@
   "role": "Solutions Architect, ISV (a customer-facing, pre-sales cloud solutions-architecture role)",
   "locations": ["San Francisco Bay Area", "New York City", "Austin TX", "Dallas TX"],
   "exclude_employer": "Amazon / AWS / Amazon Web Services",
+  "hard_constraints": {
+    "location_mode": "preferred",
+    "excluded_current_employers": [],
+    "excluded_current_employers_confirmed": false,
+    "required_seniority_levels": [],
+    "requirements": []
+  },
+  "_comment_hard_constraints": "Durable eligibility rules. Use location_mode=required for a hard geographic requirement. Add exact do-not-source firms only after showing the list to the recruiter, then set excluded_current_employers_confirmed=true; exclude_employer remains the hiring company. Seniority values use ic_mid, ic_senior, ic_staff_principal, manager, or director_plus. Put every other confirmed hard rule in requirements as {key, description, unknown_policy}; unknown_policy is exclude or allow.",
   "exclude_people": [],
   "_comment_exclude_people": "Optional: an existing pipeline/ATS list to skip. Each entry is a name (\"Jane Doe\") or a LinkedIn URL, or {\"name\": ..., \"linkedinUrl\": ...}. Also settable via --exclude-file (one per line). Fed to each run's input.exclusion and filtered from results.",
   "contact_fields": [],
@@ -36,6 +44,8 @@
     {"label": "cloud_resellers", "focus": "Pre-sales Solutions Architects, Cloud Architects, and Sales Engineers at cloud resellers, MSPs, and partners such as CDW, SHI, Insight, World Wide Technology (WWT), Presidio, Rackspace, NTT Data, and SADA."}
   ],
   "max_per_call": 12,
+  "calibration_per_segment": 2,
+  "calibration_effort": "medium",
   "discovery_effort": "medium",
   "verify_effort": "high",
   "data_sources": ["fiber"],
