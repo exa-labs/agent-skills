@@ -18,7 +18,7 @@ Included by default:
 - Async and recurring workflows: Monitors API, Websets API
 - SDK guidance: Python `exa-py`, TypeScript `exa-js`
 
-> Note on data retention: `/search`, `/answer`, and deep research are Zero Data Retention (ZDR). The Agent API (`/agent`), Websets, and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
+> Note on data retention: `/search`, `/answer`, and `/agent/` offer Zero Data Retention (ZDR). Websets and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
 
 ## Installation
 
@@ -119,7 +119,6 @@ curl -X POST "https://api.exa.ai/search" \
 - Stick to the documented `category` set and do not invent categories like `github`, `documentation`, `qa`, or `pdf`. Specialized categories such as `people` and `company` also restrict which filters are valid; check the search reference before combining categories with domain or date filters.
 - OpenAI-compatible endpoints are for compatibility-first use cases. Prefer native Exa endpoints for new integrations when you want clearer request semantics.
 - Do not treat `/agent` as a drop-in replacement for `/search`. It is higher-latency and async, so use the dedicated Agent reference when that workflow shape is the real fit. Consider using it over websets or deep where appropriate. 
-- Treat `/research/v1` as legacy. Do not present it as the default for new work.
 - Treat `/findSimilar` as deprecated. Prefer `/search` (optionally after `/contents` on the seed URL) for related-page discovery.
 
 ## Reference Files
