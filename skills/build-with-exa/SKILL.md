@@ -18,7 +18,7 @@ Included by default:
 - Async and recurring workflows: Monitors API, Websets API
 - SDK guidance: Python `exa-py`, TypeScript `exa-js`
 
-> Note on data retention: `/search`, `/answer`, and deep research are Zero Data Retention (ZDR). The Agent API (`/agent`), Websets, and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
+> Note on data retention: `/search`, `/answer`, `/agent/`, and deep research offer Zero Data Retention (ZDR). Websets and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
 
 ## Installation
 
