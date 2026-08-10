@@ -280,7 +280,7 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 - Do not send top-level `text`, `highlights`, or `summary`; that shape belongs to `/contents`.
 - Do not send `tokensNum`; use `contents.text.maxCharacters` to cap extracted text.
 - Do not use `useAutoprompt`, `numSentences`, or `highlightsPerUrl` in new requests.
-- Prefer `contents.maxAgeHours` over older `livecrawl` examples.
+- Use `contents.maxAgeHours` instead of `livecrawl`.
 - Use documented categories only: `company`, `people`, `research paper`, `news`, `personal site`, and `financial report`.
 - Avoid invalid category/filter combinations. `company` and `people` do not support `startPublishedDate` or `endPublishedDate`. `company` supports `excludeDomains`; `people` does not, and `people` only accepts LinkedIn domains in `includeDomains`.
 - Pick one of `contents.highlights`, `contents.text`, or `contents.summary` by default. Stack modes only when the caller truly needs multiple views of each page.

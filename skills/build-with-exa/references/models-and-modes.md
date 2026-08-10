@@ -14,7 +14,7 @@ Exa's primary search modes for new work:
 
 | Type | Use When | Tradeoff |
 | --- | --- | --- |
-| `auto` | You want the default | Best general-purpose starting point |
+| `auto` | You want the default; omit `type` entirely rather than sending it | Best general-purpose starting point |
 | `fast` | Latency matters more than maximum synthesis quality | Lower latency |
 | `instant` | Real-time UI and assistant flows | Lowest latency |
 | `deep-lite` | You want lightweight synthesis | More reasoning than default modes |
@@ -31,7 +31,7 @@ Do not choose a deep variant only because you want structured output. Choose it 
 
 If you are optimizing for responsiveness, start with:
 
-- `type: "fast"` for coding or agent workflows, `type: "instant"` for real-time UX, or `type: "auto"` for general retrieval
+- `type: "fast"` when latency matters more than maximum quality, `type: "instant"` for real-time UX, or no `type` at all (default `auto`) otherwise
 - no `outputSchema`
 - default freshness behavior
 
@@ -57,6 +57,8 @@ Use `deep-reasoning` when:
 
 ## Practical Defaults
 
-- General retrieval: `type: "auto"`
-- Fast coding or agent path: `type: "fast"` with `highlights`
+`auto` is almost always the right type, including for coding and agent workflows. Deviate only for a real latency or reasoning requirement:
+
+- General retrieval: omit `type`; the server defaults to `auto`
+- Latency-sensitive path: `type: "fast"` with `highlights`
 - Real-time UX: `type: "instant"` and minimal synthesis

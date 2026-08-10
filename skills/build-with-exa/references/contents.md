@@ -33,10 +33,8 @@ Use the contents endpoint when:
 ```json
 POST https://api.exa.ai/contents
 {
-  "urls": ["https://arxiv.org/abs/2307.06435"],
-  "highlights": {
-    "query": "methodology"
-  }
+  "urls": ["https://arxiv.org/abs/2307.06435"]
+  "highlights": true
 }
 ```
 
@@ -76,15 +74,15 @@ result = exa.get_contents(
 
 | Field | Best For | Notes |
 | --- | --- | --- |
-| `text` | Full extraction | Supports `maxCharacters`, `includeHtmlTags`, `verbosity`, `includeSections`, `excludeSections` |
-| `highlights` | Token-efficient excerpts | Good default for agent pipelines |
-| `summary` | Per-page compression | Each page adds its own synthesis step, so use only when you explicitly need Exa-side summaries |
+| `text` | Full extraction | Supports `maxCharacters`, `includeHtmlTags`, `verbosity`, `includeSections`, `excludeSections`; object options require an explicit task requirement |
+| `highlights` | Token-efficient excerpts | Good default for all tasks unless otherwise specified; use bare `true` |
+| `summary` | Per-page compression | Each page adds its own synthesis step; only when the user explicitly requests Exa-side summaries |
 
-Pick one of `text`, `highlights`, or `summary` by default. Stacking them is unnecessary. `summary` adds a per-page LLM call, and combining `text` with `highlights` increases billing for two views of the same page.
+Pick exactly one of `text`, `highlights`, or `summary`. Stacking them is unnecessary. `summary` adds a per-page LLM call, and combining `text` with `highlights` increases billing for two views of the same page.
 
 ## Freshness Controls
 
-Use `maxAgeHours` as the normative control for new integrations:
+Use `maxAgeHours` for crawl freshness. It caps how old cached page content may be before Exa livecrawls; it does not filter by publication date:
 
 | Value | Behavior |
 | --- | --- |
@@ -95,7 +93,7 @@ Use `maxAgeHours` as the normative control for new integrations:
 
 Set `livecrawlTimeout` whenever live crawling matters so slow pages do not block the whole request longer than expected.
 
-Do not send `livecrawl` and `maxAgeHours` together; prefer `maxAgeHours` in new requests and examples.
+Do not send `livecrawl` and `maxAgeHours` together; prefer `maxAgeHours` in requests.
 
 ## Response and Statuses
 

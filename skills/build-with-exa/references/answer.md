@@ -30,35 +30,41 @@ This is the best fit when the application wants a grounded answer, not just rank
 
 ## Request Shape
 
+The recommended request is the query alone:
+
 ```json
 POST https://api.exa.ai/answer
 {
-  "query": "What is the latest valuation of SpaceX?",
-  "text": true
+  "query": "What is the latest valuation of SpaceX?"
 }
 ```
 
 ### Core Parameters
 
+Everything beyond `query` requires an explicit task justification.
+
 | Parameter | Type | Notes |
 | --- | --- | --- |
 | `query` | string | Required |
 | `stream` | boolean | Enables SSE token streaming |
-| `text` | boolean | Include full text in cited source objects |
+| `text` | boolean | Include full text in cited source objects; adds payload size, so only when the task needs source text |
 | `outputSchema` | object | JSON Schema for structured answers |
 | `systemPrompt` | string | Guide answer behavior |
 | `userLocation` | string | Two-letter ISO country code |
 
 ## When To Prefer `/answer`
 
+If the product already has a chat LLM, do not use `/answer`. Give that LLM `/search` as a tool instead (`contents: { highlights: true }`) so it owns generation and conversation context.
+
 Use the answer endpoint when:
 
-- you need a grounded answer with citations
+- you need a grounded answer with citations and Exa should do the generation
 - you do not need to manually inspect or rank raw results first
 - the app interface is question-driven rather than retrieval-driven
 
 Prefer the search endpoint when:
 
+- the product already has a chat LLM (expose `/search` as a tool)
 - your application needs the result list itself
 - you want explicit control over `contents` modes on each result
 - you want deeper synthesized search flows via `deep` or `deep-reasoning`
