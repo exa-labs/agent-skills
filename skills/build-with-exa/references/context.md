@@ -21,7 +21,7 @@ Code-focused retrieval surface via `POST /context`.
 
 The context endpoint, also called Exa Code, is tuned for coding agents and developer workflows. It searches across repositories, docs pages, Stack Overflow, and related technical sources to return token-efficient code context.
 
-When the task is code-specific but you still want ranked web results rather than a formatted context blob, prefer `/search` with `type: "fast"`.
+When the task is code-specific but you still want ranked web results rather than a formatted context blob, prefer plain `/search`
 
 Use it when the query is about:
 

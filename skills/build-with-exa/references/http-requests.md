@@ -35,7 +35,6 @@ curl -X POST "https://api.exa.ai/search" \
   -H "x-api-key: $EXA_API_KEY" \
   -d '{
     "query": "latest developments in LLMs",
-    "type": "auto",
     "contents": {
       "highlights": true
     }
@@ -50,8 +49,7 @@ curl -X POST "https://api.exa.ai/contents" \
   -H "x-api-key: $EXA_API_KEY" \
   -d '{
     "urls": ["https://arxiv.org/abs/2307.06435"],
-    "text": true,
-    "maxAgeHours": 24
+    "text": true
   }'
 ```
 
@@ -62,8 +60,7 @@ curl -X POST "https://api.exa.ai/answer" \
   -H "Content-Type: application/json" \
   -H "x-api-key: $EXA_API_KEY" \
   -d '{
-    "query": "What is the latest valuation of SpaceX?",
-    "text": true
+    "query": "What is the latest valuation of SpaceX?"
   }'
 ```
 
@@ -145,8 +142,7 @@ curl -X POST "https://api.exa.ai/monitors" \
   -d '{
     "name": "AI Funding Tracker",
     "search": {
-      "query": "AI startups that raised Series A funding",
-      "numResults": 10
+      "query": "AI startups that raised Series A funding"
     },
     "trigger": {
       "type": "interval",
@@ -159,6 +155,8 @@ curl -X POST "https://api.exa.ai/monitors" \
 ```
 
 ## Websets
+
+Legacy surface for existing integrations only; new collection-building work uses the Agent API, and existing code should migrate to Exa Agent (see [migrate-websets-to-agent.md](migrate-websets-to-agent.md)).
 
 ```bash
 curl -X POST "https://api.exa.ai/websets/v0/websets" \

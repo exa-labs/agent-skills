@@ -65,10 +65,12 @@ POST https://api.exa.ai/agent/runs
 | `input.exclusion` | object[] | Records or entities Agent should avoid surfacing |
 | `outputSchema` | object | JSON Schema for validated `output.structured` |
 | `previousRunId` | string | Continue from a completed prior run |
-| `effort` | string | `minimal`, `low`, `medium`, `high`, `xhigh`, or `auto` |
+| `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, or `auto`. |
 | `dataSources` | object[] | Exa Connect providers to attach to the run, for example `{ "provider": "similarweb" }` |
 
 `outputSchema` supports JSON Schema. Bound list outputs with `maxItems` where possible so output size and enrichment cost are predictable.
+
+Always send an explicit `effort`. Prefer `auto` unless the task or product needs a fixed cost/latency band (`low` for cheap/fast, `high` / `xhigh` for harder research).
 
 To request contact information, describe the desired contact fields in the schema. Use standard JSON Schema formats such as `{ "type": "string", "format": "email" }`, `{ "type": "string", "format": "phone" }`, and `{ "type": "string", "format": "uri" }`.
 
@@ -76,18 +78,21 @@ The current Agent spec also accepts `budget.maxCostDollars` for compatibility, b
 
 ## Lifecycle
 
-`/agent` is asynchronous:
+Create returns a run object immediately; final output is available only after a terminal status. Every integration must complete this cycle; do not stop at create:
 
 1. Create a run with `POST /agent/runs`.
 2. Save the returned `id`, which has the `agent_run_` prefix.
-3. Poll `GET /agent/runs/{id}` until `status` is `completed`, `failed`, or `cancelled`, or stream/replay events from `GET /agent/runs/{id}/events`.
-4. Read completed output from `output`.
+3. Wait for the run to reach a terminal status (`completed`, `failed`, or `cancelled`), either by:
+   - **Polling:** `GET /agent/runs/{id}` until `status` is terminal, or
+   - **SSE events:** `Accept: text/event-stream` on create, or replay from `GET /agent/runs/{id}/events` with `Last-Event-ID`.
+   The two are equivalent; pick one per integration.
+4. Check how the run ended: on `completed`, read `output`; on `failed` or `cancelled`, surface the error to the caller or UI. Only `completed` carries results — reading `output` without checking the status makes failures look like empty successes, and a hand-rolled wait loop that exits only on `completed` never finishes for failed runs.
 
 Completed runs include:
 
 - `output.text`: natural-language answer or summary
 - `output.structured`: validated JSON matching `outputSchema`, when provided
-- `output.grounding`: citations for text or structured fields, when emitted
+- `output.grounding`: citations for text or structured fields
 - `costDollars`: run cost breakdown
 
 ## Polling
@@ -173,6 +178,7 @@ from exa_py import Exa
 exa = Exa()
 run = exa.agent.runs.create(
     query="Find five recently launched developer tools for evaluating AI agents.",
+    effort="auto",
     output_schema={
         "type": "object",
         "properties": {
@@ -185,6 +191,12 @@ run = exa.agent.runs.create(
         "required": ["tools"],
     },
 )
+finished = exa.agent.runs.poll_until_finished(run.id, poll_interval=4000)
+if finished.status == "completed":
+    print(finished.output.structured)
+    print(finished.output.grounding)
+else:
+    print(finished.status, getattr(finished, "error", None))
 ```
 
 TypeScript uses camelCase:
@@ -195,6 +207,7 @@ import Exa from "exa-js";
 const exa = new Exa();
 const run = await exa.agent.runs.create({
   query: "Find five recently launched developer tools for evaluating AI agents.",
+  effort: "auto",
   outputSchema: {
     type: "object",
     properties: {
@@ -207,11 +220,20 @@ const run = await exa.agent.runs.create({
     required: ["tools"]
   }
 });
+const finished = await exa.agent.runs.pollUntilFinished(run.id, { pollInterval: 4000 });
+if (finished.status === "completed") {
+  console.log(finished.output?.structured);
+  console.log(finished.output?.grounding);
+} else {
+  console.log(finished.status, finished.error);
+}
 ```
 
 ## Critical Pitfalls
 
-- Do not treat `/agent` as a synchronous search endpoint. Create returns a run object; poll or stream before reading final output.
+- Do not stop at create. Wait for a terminal status via polling or SSE events, then check how the run ended before reading `output`; only `completed` carries results.
+- Always set `effort` explicitly.
+- When building an app, expose `output.grounding` (citations) where relevant in a product's interface.
 - Do not use `/agent` for simple low-latency search; prefer `/search`.
 - Do not leave unbounded arrays in `outputSchema` when enrichment cost or result size matters.
 - Use `input.data` for known rows to enrich; do not paste huge row sets into `query`.

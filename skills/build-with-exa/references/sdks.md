@@ -20,6 +20,7 @@ Practical naming and surface guide for `exa-py` and `exa-js`.
 
 ## Shared Guidance
 
+- Install the latest SDK release with the package manager so it resolves the latest release and all SDK surfaces will be available.
 - Use official docs as canonical for behavior
 - Use SDK docs and repos to confirm method names, casing, and helper ergonomics
 - Distinguish request-shape casing carefully:
@@ -65,8 +66,7 @@ Use `snake_case` everywhere, including nested dict keys:
 ```python
 result = exa.search(
     "latest AI funding rounds",
-    num_results=10,
-    contents={"text": {"max_characters": 4000}},
+    contents={"highlights": True},
     output_schema={
         "type": "object",
         "properties": {"summary": {"type": "string"}},
@@ -121,8 +121,7 @@ Use `camelCase` everywhere:
 
 ```typescript
 const result = await exa.search("latest AI funding rounds", {
-  numResults: 10,
-  contents: { text: { maxCharacters: 4000 } },
+  contents: { highlights: true },
   outputSchema: {
     type: "object",
     properties: { summary: { type: "string" } },
@@ -149,6 +148,6 @@ Examples and SDK source may show helpers such as `searchAndContents(...)`. They 
 
 ## Critical Pitfalls
 
-1. Do not paste raw JSON keys into core Python SDK methods such as `search()` unchanged, including nested `contents` dictionaries.
+1. Do not paste raw JSON keys into core Python SDK methods as top-level keyword arguments; `numResults=` and `outputSchema=` raise `TypeError`. Nested dict keys tolerate either casing, but stay `snake_case` for consistency.
 2. Do not assume helper methods define the canonical API shape.
 3. Remember the Python SDK's documented `search()` default-contents behavior.

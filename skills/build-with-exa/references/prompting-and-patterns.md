@@ -48,7 +48,6 @@ Pattern:
 ```json
 {
   "query": "Compare recent frontier model launches",
-  "type": "deep",
   "systemPrompt": "Prefer official vendor announcements and avoid duplicate reporting.",
   "outputSchema": {
     "type": "object",
@@ -63,22 +62,23 @@ Pattern:
 
 ## Highlights vs Text
 
-- Start with one by default:
-- use `highlights` when the caller mainly needs the most relevant excerpts
-- use `text` when broad page context is necessary
-- use `summary` only when you explicitly want Exa to run per-result LLM compression
+Pick exactly one:
 
-Stacking `text`, `highlights`, and `summary` is usually the wrong default. `summary` adds a per-result LLM call, which means N results create N extra synthesis steps and higher latency. Combining `text` and `highlights` also increases billing for two views of the same page.
+- `highlights` is the recommended mode on `/search`: bare `highlights: true` auto-selects an appropriate excerpt length per page, anchored to the search query, so there is nothing to tune
+- on `/contents` there is no search query to anchor to, so the default is full `text` (also the server default); when using highlights there, provide the object form with a `query`
+- use `text` on `/search` only when broad page context is necessary for downstream logic
+- use `summary` only when the user explicitly requests Exa-side per-result LLM compression; a summarized final product is not sufficient justification
 
-For many agent workflows, `highlights: true` is the safest default.
-Bare `highlights: true` auto-selects an appropriate excerpt length per page. Only set `maxCharacters` when you have a fixed budget. Below about 400 characters usually truncates too aggressively for downstream LLM use.
+Do not stack `text`, `highlights`, and `summary`. `summary` adds a per-result LLM call, which means N results create N extra synthesis steps and higher latency. Combining `text` and `highlights` also increases billing for two views of the same page.
 
 ## Freshness Patterns
 
-Use `maxAgeHours` to express how fresh the content must be:
+Use `maxAgeHours` to control how old cached page content may be before Exa livecrawls the page.
+
+It is not a publication-date filter. For publication recency, phrase the time window in the query or use `startPublishedDate` / `endPublishedDate` on `/search`.
 
 - omit it for the default balanced behavior
-- set a small value when near-real-time freshness matters
+- set a small value when the extracted page content must be near-current
 - set `0` only when the app truly requires live crawling every time
 - set `-1` when the latency-critical path should stay cache-only
 
@@ -96,12 +96,12 @@ It matters less on:
 
 ## Endpoint-Selection Patterns
 
-- Question-first UI: consider `/answer`
-- Search-results-first UI: use `/search`
+- Question-first UI with no app-side LLM: consider `/answer`
+- App already has a chat LLM, or search-results-first UI: use `/search`
 - Known URLs: use `/contents`
 - Code retrieval: use `/context`
 - Repeated recurring tracking: use `/monitors`
-- Verified list-building and enrichment: use `/websets/v0`
+- List-building and enrichment: use `/agent`
 
 ## Tool Calling Pattern
 
@@ -149,8 +149,8 @@ Design tips:
 
 - Say "search the live web" in the description so the LLM picks Exa for fresh-info queries
 - Keep `query` the only required field; let the LLM compose natural-language queries
-- Return `highlights` or `summary` rather than full `text` to keep tool-result tokens small
-- Prefer `highlights` over `summary` for tool results unless you specifically need Exa-side per-result synthesis
+- Do not expose or hardcode categories, domain filters, or result counts the user never asked for
+- Return `highlights` rather than full `text` to keep tool-result tokens small
 - Add separate `exa_answer` or `exa_get_contents` tools instead of overloading one search tool when the agent also needs grounded answers or known-URL extraction
 - Echo `tool_call_id` (OpenAI) or `tool_use_id` (Anthropic) back exactly; mismatches fail silently
 
@@ -161,15 +161,14 @@ For a latency-critical UX, start with:
 ```json
 {
   "type": "instant",
-  "numResults": 3,
   "contents": {
-    "highlights": { "maxCharacters": 1000 },
+    "highlights": true,
     "maxAgeHours": -1
   }
 }
 ```
 
-This keeps the path fast: `instant` minimizes retrieval latency, `highlights` keeps payloads compact, and `maxAgeHours: -1` skips live-crawl overhead by using cache only.
+This keeps the path fast: `instant` minimizes retrieval latency, bare `highlights` keeps payloads compact, and `maxAgeHours: -1` skips live-crawl overhead by using cache only.
 
 ## Structured Output Patterns
 

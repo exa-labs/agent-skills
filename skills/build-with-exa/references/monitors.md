@@ -27,7 +27,7 @@ The Monitors API runs Exa searches on a schedule and delivers results to a webho
 - policy or regulatory changes
 - new publications on a topic
 
-This file covers the standalone Monitors API only. Websets has its own monitor subresources inside the Websets API family and is documented separately in [websets.md](websets.md).
+This file covers the standalone Monitors API only. Websets has its own monitor subresources inside the Websets API family; see [migrate-websets-to-agent.md](migrate-websets-to-agent.md) for moving those workloads here.
 
 ## Endpoint Summary
 
@@ -49,8 +49,7 @@ POST https://api.exa.ai/monitors
 {
   "name": "AI Funding Tracker",
   "search": {
-    "query": "AI startups that raised Series A funding",
-    "numResults": 10
+    "query": "AI startups that raised Series A funding"
   },
   "trigger": {
     "type": "interval",
@@ -121,8 +120,7 @@ exa = Exa(api_key="YOUR_EXA_API_KEY")
 monitor = exa.monitors.create(params={
     "name": "AI Funding Tracker",
     "search": {
-        "query": "AI startups that raised Series A funding",
-        "numResults": 10
+        "query": "AI startups that raised Series A funding"
     },
     "trigger": {
         "type": "interval",
