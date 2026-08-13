@@ -33,7 +33,7 @@ Use the contents endpoint when:
 ```json
 POST https://api.exa.ai/contents
 {
-  "urls": ["https://arxiv.org/abs/2307.06435"]
+  "urls": ["https://arxiv.org/abs/2307.06435"],
   "highlights": true
 }
 ```
