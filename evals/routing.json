@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "prompt": "Integrate Exa semantic search into my TypeScript application using the SDK",
+      "expected": "build-with-exa"
+    },
+    {
+      "prompt": "Which Exa API endpoint and request shape should my product use for research?",
+      "expected": "build-with-exa"
+    },
+    {
+      "prompt": "Call POST /search directly with curl and filter results by published date",
+      "expected": "exa-search"
+    },
+    {
+      "prompt": "Run a semantic web search and return ranked results with highlights",
+      "expected": "exa-search"
+    },
+    {
+      "prompt": "I already have these URLs; extract their text, links, and subpages",
+      "expected": "exa-contents"
+    },
+    {
+      "prompt": "Use POST /contents directly to get freshness-controlled highlights from known URLs",
+      "expected": "exa-contents"
+    },
+    {
+      "prompt": "Research this company, its funding, executives, recent news, and competitors",
+      "expected": "company-research"
+    },
+    {
+      "prompt": "Do a competitor analysis and market deep dive on Anthropic",
+      "expected": "company-research"
+    },
+    {
+      "prompt": "Build a CSV prospect list of 100 companies matching our ICP",
+      "expected": "lead-generation"
+    },
+    {
+      "prompt": "Find sales leads, enrich them with buying signals, and score ICP fit",
+      "expected": "lead-generation"
+    }
+  ]
+}

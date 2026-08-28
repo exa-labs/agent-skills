@@ -1,0 +1,29 @@
+{
+  "name": "agent-skills",
+  "version": "0.1.0",
+  "description": "Exa workflows for search, content extraction, company research, lead generation, and API integration.",
+  "author": {
+    "name": "Exa Labs",
+    "url": "https://exa.ai"
+  },
+  "homepage": "https://github.com/exa-labs/agent-skills",
+  "repository": "https://github.com/exa-labs/agent-skills",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Exa Agent Skills",
+    "shortDescription": "Search, research, enrichment, and Exa API workflows.",
+    "longDescription": "Reusable Exa workflows for semantic search, content extraction, company research, lead generation, and product integration.",
+    "developerName": "Exa Labs",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Choose the right Exa workflow for this task",
+      "Research companies and return cited results",
+      "Help me integrate Exa into my application"
+    ]
+  }
+}

@@ -1,7 +1,6 @@
 ---
 name: company-research
-description: Company research using Exa. Finds company info, competitors, news, financials, LinkedIn profiles, builds company lists. Use when researching companies, doing competitor analysis, market research, or building company lists.
-context: fork
+description: Research companies and markets with Exa, including competitors, funding, news, financials, and leadership. Use when doing a company deep dive, competitor analysis, or market research; use lead-generation instead for ICP-based prospect lists and CSV output.
 ---
 
 # Company Research
@@ -127,11 +126,25 @@ web_search_advanced_exa {
 
 ## Token Isolation
 
-Never dump raw search results into main context. Spawn Task agents for Advanced Search calls; for Agent runs, go straight from `output.structured` to the final answer.
+Do not dump raw search results into the final response. When the host supports isolated subtasks and the work is large enough to justify them, use that isolation for independent Advanced Search passes. For Agent runs, synthesize from `output.structured` and preserve the relevant grounding citations.
 
 ## Browser Fallback
 
-Fall back to Claude in Chrome only when content is auth-gated or requires JavaScript rendering.
+Use an authenticated or JavaScript-capable browser only when the available retrieval tools cannot access required content and the host provides one.
+
+## Failure Handling
+
+- On authentication, connection, or rate-limit errors, surface the concrete failure and required setup; do not switch providers silently.
+- If an Agent run reaches `failed` or `cancelled`, inspect its error and retry at most once after correcting the query or schema.
+- If a quick search is thin or off-topic, try one materially different query angle before reporting limited coverage.
+- Preserve conflicting company facts with source attribution rather than selecting one without evidence.
+
+## Red Flags
+
+- Using quick search for a multi-angle deep dive that needs synthesis.
+- Returning company claims without URLs or grounding.
+- Treating funding, headcount, or leadership data as current without checking dates.
+- Calling a company list “complete” when the requested count or constraints were not met.
 
 ## Output Format
 
@@ -139,6 +152,13 @@ Return:
 1) Results (structured list; one company per row)
 2) Sources (URLs; 1-line relevance each — use `output.grounding` from Agent runs)
 3) Notes (uncertainty/conflicts)
+
+## Verification
+
+- Confirm every material claim has a supporting URL or Agent grounding entry.
+- Check that requested companies, fields, dates, and geographic constraints are represented.
+- Deduplicate company entities and note unresolved conflicts or missing coverage.
+- For structured output, verify required fields and array bounds before presenting it.
 
 ## References
 

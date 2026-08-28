@@ -1,11 +1,11 @@
 ---
 name: lead-generation
-description: Generate enriched lead lists using Exa Agent. Finds companies matching an ICP, enriches with signals/news/scores, and outputs CSV. Use when generating leads, building prospect lists, finding companies to sell to, doing outbound research, or ICP-based company discovery. Triggers on "leads", "lead gen", "prospect list", "find companies", "ICP", "outbound list".
+description: Generate enriched lead lists using Exa Agent. Finds companies matching an ICP, enriches with signals, news, and scores, and outputs CSV. Use when generating sales leads, building prospect lists, finding companies for outbound work, or doing ICP-based company discovery; use company-research instead for a single-company deep dive.
 ---
 
 # Lead Generation with Exa Agent
 
-Generate enriched lead lists using the Exa Agent API. An Agent run is an asynchronous, multi-step web research task: you describe the list you want plus an output schema, and Exa handles query decomposition, searching, verification, enrichment, and structured output internally. You do NOT need to orchestrate parallel searches, subagents, or manual deduplication.
+Generate enriched lead lists using the Exa Agent API. An Agent run is an asynchronous, multi-step web research task: describe the list plus an output schema, and Exa handles query decomposition, searching, verification, enrichment, and structured output internally. Do not add parallel search orchestration or manual deduplication unless the returned data requires it.
 
 For very large or continuously maintained lead lists with per-item verification, consider Exa Websets instead: https://docs.exa.ai/websets/api/overview
 
@@ -22,7 +22,7 @@ Then stop.
 
 ## Tool Restriction
 
-Use `agent_run`, plus Write and Bash (for CSV output). Do NOT use generic web search for the lead list itself.
+Use `agent_run` and the host's available file-writing capability for CSV output. Do not use generic web search for the lead list itself.
 
 ## Workflow
 
@@ -133,7 +133,7 @@ Do not paste the full raw output into the conversation — go straight to CSV.
 
 ## Step 4: Write the CSV
 
-Write `output.structured.companies` to `{target_company}_leads_{YYYY-MM-DD}.csv`, sorted by `icp_fit_score` descending. Join any array fields with " | ". Use Python's `csv.writer` (handles quoting/escaping) via Bash, or Write directly for small lists.
+Write `output.structured.companies` to `{target_company}_leads_{YYYY-MM-DD}.csv`, sorted by `icp_fit_score` descending. Join array fields with ` | ` and use a CSV-aware writer so commas, quotes, and newlines are escaped correctly.
 
 Print a summary:
 
@@ -159,9 +159,16 @@ For lists in the many hundreds, run a few runs sequentially this way rather than
 
 ## Handling Failures
 
-- If a run ends `failed`, read the error from the `agent_run` result, adjust the query or schema, and retry once with different wording
-- If a client cancellation is needed, abort the in-progress `agent_run` call
-- If results are consistently below the requested count, narrow the ICP into 2-3 sub-vertical runs instead of one broad run
+- If a run ends `failed`, read the error, correct the query or schema, and retry at most once.
+- If the user or host cancels the work, stop polling and preserve the run ID when available.
+- If results remain below the requested count, split the ICP into 2-3 distinct sub-vertical runs and disclose the remaining shortfall.
+
+## Red Flags
+
+- Starting list generation before the ICP and exclusions are clear.
+- Returning duplicate parents, subsidiaries, or existing customers.
+- Treating an uncited fit score as verified evidence.
+- Writing a malformed CSV or claiming the requested count when fewer unique rows were produced.
 
 ## MCP Configuration
 
@@ -187,3 +194,10 @@ Requires an Exa API key. Get yours at https://dashboard.exa.ai/api-keys
 - Exa MCP setup: https://docs.exa.ai/reference/exa-mcp
 - Websets (verified list-building at scale): https://docs.exa.ai/websets/api/overview
 - Full docs for LLMs: https://docs.exa.ai/llms.txt
+
+## Verification
+
+- Confirm the run ended successfully and grounding is available for material enrichment claims.
+- Validate required fields, score ranges, and the requested number of unique companies.
+- Re-open the CSV with a CSV parser and confirm its row count and column alignment.
+- Report the final unique count, any shortfall, the run ID, cost when available, and output path.

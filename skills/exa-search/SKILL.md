@@ -274,6 +274,13 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 | `costDollars.total` | number | Total request cost when returned. |
 | `searchTime` | number | Search latency when returned. |
 
+## Failure Handling
+
+- Surface authentication, validation, and rate-limit errors with the returned status and message.
+- Correct invalid category/filter combinations rather than removing caller constraints silently.
+- Retry transient transport or server failures only with a small bound; do not retry malformed requests unchanged.
+- When a deep or streaming response fails, preserve any request ID and distinguish partial output from a complete result.
+
 ## Critical Pitfalls
 
 - Keep `text`, `highlights`, and `summary` inside `contents` on `/search`.
@@ -285,3 +292,10 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 - Avoid invalid category/filter combinations. `company` and `people` do not support `startPublishedDate` or `endPublishedDate`. `company` supports `excludeDomains`; `people` does not, and `people` only accepts LinkedIn domains in `includeDomains`.
 - Pick one of `contents.highlights`, `contents.text`, or `contents.summary` by default. Stack modes only when the caller truly needs multiple views of each page.
 - Expect SSE only when `stream: true` is paired with `outputSchema`; otherwise `/search` returns its normal JSON response.
+
+## Verification
+
+- Confirm the request uses `POST /search` and nests extraction options under `contents`.
+- Check that returned results satisfy requested filters rather than assuming retrieval rank proves qualification.
+- Validate `output.content` against `outputSchema` when structured output is requested.
+- Preserve grounding citations for synthesized output and report partial or empty coverage explicitly.
