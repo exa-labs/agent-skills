@@ -2,7 +2,7 @@
 
 [![skills.sh](https://skills.sh/b/exa-labs/agent-skills)](https://skills.sh/exa-labs/agent-skills)
 
-Reusable workflows for Exa search, content extraction, research, enrichment, and API integration.
+Connect AI assistants to Exa's API skills: search, contents extraction, answer, Agent API, monitors, and OpenAI-compatible endpoints.
 
 > [!NOTE]
 > Get an API key from the [Exa Dashboard](https://dashboard.exa.ai/) and expose it as `EXA_API_KEY` to the agent environment.
@@ -26,13 +26,11 @@ Integrate Exa  Find URLs      Read URLs      Understand      Build lists
 
 | Skill | Boundary |
 | --- | --- |
-| `build-with-exa` | Product integration across Exa APIs and SDKs; not the direct-search workflow. |
-| `exa-search` | Direct semantic search from a query; not extraction-only work for known URLs. |
-| `exa-contents` | Extraction from known URLs; does not discover new results. |
-| `company-research` | Cited company and market analysis; not outbound list production. |
-| `lead-generation` | Structured, enriched prospect lists; not a single-company deep dive. |
-
-## Install
+| `build-with-exa` | Build applications and agents with Exa's API Platform: search, contents extraction, answer, Agent API, monitors, OpenAI-compatible endpoints, and `exa-py` / `exa-js`. |
+| `exa-search` | Call Exa Search directly with cURL or raw HTTP for semantic web search, ranked results, content extraction, structured output, filters, freshness, and streaming search responses. |
+| `exa-contents` | Call Exa Contents directly with cURL or raw HTTP for extracted text, highlights, summaries, links, image links, subpages, and freshness-controlled crawling from known URLs. |
+| `company-research` | Research companies, competitors, funding, news, leadership, and market context with Exa Agent and advanced search. |
+| `lead-generation` | Generate enriched ICP-based lead lists with Exa Agent, including structured scoring and CSV output. |
 
 Any agent supported by the Skills CLI:
 

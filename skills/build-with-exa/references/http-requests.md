@@ -8,7 +8,6 @@ Minimal cURL examples across the main Exa surfaces.
 - Search reference: `/reference/search`
 - Contents reference: `/reference/get-contents`
 - Answer reference: `/reference/answer`
-- Context reference: `/reference/context`
 - OpenAI SDK compatibility: `/reference/openai-sdk`
 - Agent API guide: `/reference/agent-api-guide`
 - Exa Connect overview: `/reference/agent-api/connect/overview`
@@ -20,7 +19,6 @@ Minimal cURL examples across the main Exa surfaces.
 - Search
 - Contents
 - Answer
-- Context
 - Agent
 - OpenAI-compatible chat completions
 - OpenAI-compatible responses
@@ -61,18 +59,6 @@ curl -X POST "https://api.exa.ai/answer" \
   -H "x-api-key: $EXA_API_KEY" \
   -d '{
     "query": "What is the latest valuation of SpaceX?"
-  }'
-```
-
-## Context
-
-```bash
-curl -X POST "https://api.exa.ai/context" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $EXA_API_KEY" \
-  -d '{
-    "query": "how to use React hooks for state management",
-    "tokensNum": 5000
   }'
 ```
 

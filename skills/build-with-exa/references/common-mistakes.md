@@ -22,6 +22,7 @@ The most common failure mode is decorating the recommended request. The recommen
 | `category: "people"` or `category: "company"` for list-building, sourcing, or enrichment | Use the Agent API (`/agent`); those categories are only for retrieving raw people or company documents |
 | `highlights: {"maxCharacters": ...}` as a default | Use bare `highlights: true`; `maxCharacters` requires an explicit budget requirement |
 | `maxAgeHours` or date filters added without a stated freshness need | Omit freshness controls unless the task requires them |
+| `startPublishedDate` / `endPublishedDate` for "recent" or "latest" alone | Phrase that recency in the query; date filters are for task-stated bounded windows that must be enforced ("the last seven days", "in 2026") |
 | New collection-building on `/websets/v0` | Use the Agent API (`/agent`); see [migrate-websets-to-agent.md](migrate-websets-to-agent.md) |
 
 ## Shape and Deprecation Corrections
@@ -32,7 +33,7 @@ The most common failure mode is decorating the recommended request. The recommen
 | `highlights: {...}` at the top level on `/search` | Nest it: `"contents": {"highlights": {...}}` |
 | `summary: true` at the top level on `/search` | Nest it: `"contents": {"summary": true}` |
 | `contents: { text: ... }` on `/contents` | On `/contents`, `text`, `highlights`, and `summary` are top-level fields |
-| `tokensNum` on `/search` or `/contents` | `tokensNum` belongs to `/context`, not search or contents |
+| `tokensNum` on `/search` or `/contents` | Not a search or contents field; size content with `contents.text.maxCharacters` on `/search` or `text.maxCharacters` on `/contents` |
 | `includeUrls` / `excludeUrls` | Use `includeDomains` / `excludeDomains` |
 | `useAutoprompt` in new requests | Remove it; it is deprecated |
 | `numSentences` for highlights | Use `maxCharacters` or `highlights: true` |
@@ -52,8 +53,3 @@ The most common failure mode is decorating the recommended request. The recommen
 
 - search endpoint: nested `contents`
 - contents endpoint: top-level `text`, `highlights`, `summary`
-
-### Context vs Search
-
-- context endpoint: `tokensNum`
-- search endpoint: content sizing belongs under `contents.text.maxCharacters`
