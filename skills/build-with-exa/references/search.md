@@ -66,6 +66,7 @@ Every parameter below changes behavior away from the server defaults. Add one on
 | `category` | string | The user explicitly requests category-constrained retrieval. See Category. |
 | `includeDomains` | string[] | The user explicitly requests a hard allowlist and supplies or approves its contents. Supports paths and wildcards such as `openai.com/blog` or `*.substack.com`. |
 | `excludeDomains` | string[] | The user explicitly requests a hard blocklist and supplies or approves its contents. Do not convert source preferences or examples into filters; use query phrasing or `systemPrompt`. |
+| `startPublishedDate` / `endPublishedDate` | string (ISO 8601) | The task states a bounded window that must be enforced ("the last seven days", "in 2026"). Hard filters drop undated and misdated pages; "recent" or "latest" alone belongs in the query, not here. |
 | `userLocation` | string | The task is location-sensitive. Two-letter ISO country code. |
 | `systemPrompt` | string | The task uses synthesized output and needs behavior, emphasis, or source-preference guidance. |
 | `outputSchema` | object | The task requires structured output in `output.content`. |
@@ -159,7 +160,7 @@ Keep schemas small and explicit. Exa's structured output guidance favors compact
 
 Do not set `category` unless the user explicitly requests category-constrained retrieval. Mapping task nouns to categories — news tasks to `news`, people tasks to `people`, paper tasks to `publication` — is a mistake: the default index already handles those queries, and the query text itself is the right place to express the topic.
 
-When a user does explicitly request it, documented values include `company`, `people`, `publication`, `news`, `personal site`, and `financial report`. Never invent categories such as `github`, `documentation`, `qa`, or `pdf`. For coding queries, prefer the `/context` endpoint or plain `/search`.
+When a user does explicitly request it, documented values include `company`, `people`, `publication`, `news`, `personal site`, and `financial report`. Never invent categories such as `github`, `documentation`, `qa`, or `pdf`. For coding queries, use plain `/search`.
 
 ### People and Company Routing
 
@@ -201,3 +202,4 @@ Prefer reading citations and grounding from `output.grounding` when using struct
 8. Treat `useAutoprompt`, `numSentences`, and `highlightsPerUrl` as deprecated; do not add them to new examples.
 9. Use `contents.maxAgeHours` instead of `livecrawl`.
 10. Never invent `category` values such as `github`, `documentation`, `qa`, or `pdf`.
+11. Do not add `startPublishedDate` / `endPublishedDate` for "recent" or "latest" alone; phrase that recency in the query. Use date filters when the task states a bounded window that must be enforced (for example "from the last seven days", "published in 2026").
