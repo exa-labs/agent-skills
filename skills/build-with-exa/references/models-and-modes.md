@@ -18,7 +18,7 @@ Exa's primary search modes for new work:
 | `fast` | Latency matters more than maximum synthesis quality | Lower latency |
 | `instant` | Real-time UI and assistant flows | Lowest latency |
 | `deep-lite` | You want lightweight synthesis | More reasoning than default modes |
-| `deep` | You need deeper synthesized retrieval | Higher latency |
+| `deep` | You need deeper synthesized retrieval, or a wide `outputSchema` whose fields take more than one search to fill | Higher latency; runs several searches, so more schema fields come back filled |
 | `deep-reasoning` | You want the strongest research-style reasoning | Highest latency |
 
 ## How Output Controls Affect Behavior
@@ -27,7 +27,7 @@ Exa's primary search modes for new work:
 - `systemPrompt` guides synthesis behavior but does not replace schema control
 - `maxAgeHours: 0` forces fresh crawling and can increase latency substantially
 
-Do not choose a deep variant only because you want structured output. Choose it when the retrieval task itself needs more reasoning or multi-step synthesis.
+Do not choose a deep variant only because you want structured output. Choose it when the retrieval task itself needs more reasoning or multi-step synthesis. A wide schema whose fields take more than one search to fill is one such task: `deep` runs several searches, so more of the fields come back filled. A compact schema (author and URL per article) stays on `auto`.
 
 If you are optimizing for responsiveness, start with:
 

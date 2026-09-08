@@ -66,8 +66,8 @@ The recommended Exa search request is the query plus token-efficient content ext
 Before picking an endpoint, decide which workflow shape fits:
 
 - Raw web content for your own LLM or agent: use `/search` with the recommended request above
-- Synthesized structured output: use `/search` and add `outputSchema` (and `systemPrompt` if behavior guidance is needed)
-- Long-running multi-step research, list-building, or enrichment with structured output: use the Agent API (`/agent`)
+- A specific output shape, or fields that have to be extracted or synthesized from the pages: use `/search` and add `outputSchema` (and `systemPrompt` if behavior guidance is needed). The user does not have to say "JSON" or "schema": "the funding amount each article reports", "name, title, and company for each person", or a field the result must carry that result metadata only sometimes has (a required author) are all structured-output requests. Fields every result already carries (title, URL, published date) are not: "10 articles with title and URL" is the recommended request with `numResults`. A compact schema (author and URL per article) stays on `auto`; `type: "deep"` when the schema is wide or its fields take more than one search to fill, since it runs several. See Structured Output in `references/search.md`.
+- Long-running multi-step research, list-building, or enrichment with structured output: use the Agent API (`/agent`), with the same `outputSchema` rule for its fields
 
 **Default to the search endpoint.** Use the search endpoint (`/search`) for most new integrations, then move to a more specialized Exa surface only when the task shape clearly calls for it.
 
@@ -134,6 +134,7 @@ curl -X POST "https://api.exa.ai/search" \
 ## Critical Pitfalls
 
 - Do not decorate the recommended request without reason. Adding `category`, domain filters, boilerplate `numResults`, or freshness controls without an explicit task requirement is the most common integration mistake.
+- Do not answer an extraction request with a bare search. A field that has to come out of the page, or a metadata field the user requires on every result, goes in `outputSchema`; keep/drop rules go in `systemPrompt`; `query` is retrieval intent only. If a clause of the query says `only`, `include`, `exclude`, `drop`, or `return`, it is in the wrong field. Do not add `outputSchema` for fields every result already carries (title, URL, published date).
 - On the search endpoint, `text`, `highlights`, and `summary` belong inside `contents`, not at the top level.
 - On the contents endpoint, `text`, `highlights`, and `summary` are top-level fields, not nested inside `contents`.
 - Pick one of `highlights`, `text`, or `summary`. Do not stack them. `summary` requires an explicit user request for Exa-side per-result synthesis.
