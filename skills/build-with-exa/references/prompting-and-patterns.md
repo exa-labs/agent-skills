@@ -39,8 +39,9 @@ Examples:
 
 Use them together, but give them different jobs:
 
-- `systemPrompt`: source preferences, output style, dedup behavior, emphasis
-- `outputSchema`: exact response shape
+- `systemPrompt`: source preferences, output style, dedup behavior, emphasis, what to do when a field cannot be verified
+- `outputSchema`: exact response shape, for fields extracted or synthesized from the pages (not for `title` and `url`, which every result carries)
+- `query`: the search itself; never the field list or the keep/drop rules
 
 Pattern:
 

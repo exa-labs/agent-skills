@@ -82,11 +82,11 @@ Use Exa's primary search types as latency/quality presets:
 | `fast` | Low-latency apps | Faster than `auto`, slightly less headroom for synthesis-heavy work |
 | `instant` | Real-time apps | Lowest latency path |
 | `deep-lite` | Lightweight synthesized output | More reasoning and synthesis than `auto` |
-| `deep` | Multi-step synthesis | Higher latency, better for structured or research-like output |
+| `deep` | Multi-step synthesis; wide or multi-search `outputSchema` | Higher latency; runs several searches, so more schema fields come back filled |
 | `deep-reasoning` | Hardest research tasks | Highest reasoning depth and highest latency |
 
 `auto` is the server default. Stay on it unless the use case clearly prioritizes real-time speed, deeper reasoning, or configuration control.
-`outputSchema` works across search types, so do not pick a deep variant only because you want structured output.
+`outputSchema` works across search types, so do not pick a deep variant only because you want structured output; `deep` is for a wide schema whose fields take more than one search to fill (see Structured Output).
 
 ## Nested Contents Options
 
@@ -129,30 +129,45 @@ Do not stack `text`, `highlights`, and `summary` in one request. `summary` adds 
 
 ## Structured Output
 
-`systemPrompt` and `outputSchema` do different jobs:
+Use structured output when the user asks for a specific output shape, or for fields that have to be extracted or synthesized from the pages. They do not have to say "JSON" or "schema":
 
-- `systemPrompt` controls behavior, emphasis, and source preferences
-- `outputSchema` controls the shape of `output.content`
+- "the fine amount each article reports", "name, title, and company for each person", "a one-line verdict per paper" are extraction: `outputSchema`
+- "the author of each article" when the user requires it ("I absolutely need the author", "nothing without one") is extraction too: `author` metadata is present only when the publisher exposes it, so a required author has to be confirmed from the page, and results that fail the rule are dropped in `systemPrompt`
+- "10 articles with title and URL" is not: every result already carries `title`, `url`, and `publishedDate`, so this is the recommended request with `numResults: 10` and no schema
 
-```python
-from exa_py import Exa
+Three fields, three jobs. Sort every clause of the user's ask into exactly one:
 
-exa = Exa(api_key="YOUR_EXA_API_KEY")
-result = exa.search(
-    "Who leads OpenAI's safety work?",
-    system_prompt="Prefer official sources and avoid duplicate results.",
-    output_schema={
-        "type": "object",
-        "properties": {
-            "leader": {"type": "string"},
-            "title": {"type": "string"}
-        },
-        "required": ["leader", "title"]
+- `query`: what to retrieve, phrased like a search box entry ("latest news on Nvidia"). Test: if a clause contains `only`, `include`, `exclude`, `drop`, `return`, `must have`, it is not query text.
+- `systemPrompt`: keep/drop and verification rules, source preferences, what to do when a field cannot be verified (omit or null, never a guess). A follow-up that adds a rule ("nothing without an author") edits `systemPrompt`, not `query`.
+- `outputSchema`: the shape of `output.content`
+
+```json
+{
+  "query": "latest news on Nvidia",
+  "systemPrompt": "Include an article only when its page names an individual author. Omit results whose author cannot be verified; never substitute 'Staff' or the publication name.",
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "articles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {"author": {"type": "string"}, "url": {"type": "string"}},
+          "required": ["author", "url"]
+        }
+      }
     },
-    contents={"highlights": True}
-)
-print(result.output.content if result.output else None)
+    "required": ["articles"]
+  },
+  "contents": {"highlights": true}
+}
 ```
+
+Not this: `"query": "latest Nvidia news, only articles with a named author, exclude staff bylines"` with no `systemPrompt`. Same words, wrong field: the rule is now steering retrieval instead of filtering the synthesized output.
+
+Keep `contents: {"highlights": true}` on the request so the fields are filled from page content rather than from titles and metadata alone.
+
+A compact schema (the author and URL above) stays on `auto`. When the schema is wide, or its fields take more than one search to fill (several facts per entity, values that live on different pages), set `type: "deep"`: it runs several searches instead of one, so more of the fields come back filled.
 
 Keep schemas small and explicit. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
 
