@@ -79,6 +79,7 @@ Before picking an endpoint, decide which workflow shape fits:
 6. Need asynchronous multi-step research, list-building, enrichment, or follow-up questions over prior research: use the Agent API (`/agent`)
 7. Need scheduled recurring search with webhook delivery: use the Monitors API (`/monitors`)
 8. Maintaining an existing Websets integration: see the migration guide (`references/migrate-websets-to-agent.md`) and transition to the Agent API (`references/agent.md`). Do not use Websets for new work; use the Agent API instead.
+9. Need page content as it was at a past datetime (backtesting agents, reproducible evals, comparing earlier versions of docs, pricing pages, policies, or filings): use Exa Snapshot, the `snapshotAsOf` field on `/contents` (top level) or `/search` (inside `contents`). See `references/snapshot.md`.
 
 ## Quick Start
 
@@ -153,6 +154,7 @@ curl -X POST "https://api.exa.ai/search" \
 |------|--------|
 | [references/search.md](references/search.md) | Search endpoint request/response shape, search types, filters, nested contents, structured output |
 | [references/contents.md](references/contents.md) | Contents endpoint extraction, freshness, statuses, top-level content fields |
+| [references/snapshot.md](references/snapshot.md) | Exa Snapshot: `snapshotAsOf` historical page versions on `/contents` and `/search`, limits, snapshot vs freshness |
 | [references/answer.md](references/answer.md) | Grounded answer generation with citations and structured output |
 | [references/agent.md](references/agent.md) | Agent API for async multi-step research, enrichment, structured output, polling, and events |
 | [references/openai-compat.md](references/openai-compat.md) | OpenAI-compatible endpoints, model routing, `extra_body` usage |
@@ -171,5 +173,6 @@ curl -X POST "https://api.exa.ai/search" \
 - Search reference: `https://exa.ai/docs/reference/search`
 - Agent API guide: `https://exa.ai/docs/reference/agent-api-guide`
 - Exa Connect overview: `https://exa.ai/docs/reference/agent-api/connect/overview`
+- Exa Snapshot: `https://exa.ai/docs/search/snapshot`
 - Python SDK spec: `https://exa.ai/docs/sdks/python-sdk-specification`
 - TypeScript SDK spec: `https://exa.ai/docs/sdks/typescript-sdk-specification`
