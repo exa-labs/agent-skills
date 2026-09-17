@@ -190,7 +190,7 @@ Keep schemas small and explicit — on `/search`, `outputSchema` has hard limits
 }
 ```
 
-When the ask needs more than fits, drop the least important fields rather than send a schema over the cap. These caps are specific to `/search`: `/answer` may accept a wider schema, and agent runs have no schema caps. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
+When the ask needs more than fits, drop the least important fields rather than send a schema over the cap. These caps are specific to `/search`: `/answer` does not enforce the key or depth limits (arrays still need `items`), and agent runs have no schema caps. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
 
 ## Category
 
