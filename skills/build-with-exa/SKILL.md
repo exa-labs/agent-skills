@@ -132,6 +132,13 @@ curl -X POST "https://api.exa.ai/search" \
   }'
 ```
 
+## Failure Handling
+
+- Treat authentication, validation, and rate-limit errors as distinct failures; surface the returned status and message instead of guessing at a new request shape.
+- Retry transient network or server failures only when the caller permits it, with a small bounded retry count.
+- For Agent runs, stop on every terminal state and inspect the terminal error before considering a new run.
+- If an SDK method or field is unavailable, verify the installed SDK version before rewriting working code around the missing surface.
+
 ## Critical Pitfalls
 
 - Do not decorate the recommended request without reason. Adding `category`, domain filters, boilerplate `numResults`, or freshness controls without an explicit task requirement is the most common integration mistake.
@@ -176,3 +183,12 @@ curl -X POST "https://api.exa.ai/search" \
 - Exa Snapshot: `https://exa.ai/docs/search/snapshot`
 - Python SDK spec: `https://exa.ai/docs/sdks/python-sdk-specification`
 - TypeScript SDK spec: `https://exa.ai/docs/sdks/typescript-sdk-specification`
+
+## Verification
+
+Before handing off an integration:
+
+- Confirm the chosen endpoint matches the workflow shape.
+- Validate the request fields against the relevant colocated reference.
+- Run the narrowest safe request or test available and inspect the actual response shape.
+- Confirm citations, terminal status, or generated artifacts required by the caller are present.

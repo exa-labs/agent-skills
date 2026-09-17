@@ -1,0 +1,22 @@
+{
+  "name": "exa-agent-skills",
+  "interface": {
+    "displayName": "Exa Agent Skills"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "version": "0.1.0",
+      "description": "Search, research, enrichment, and Exa API workflows.",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -181,6 +181,13 @@ curl -sS -X POST "https://api.exa.ai/contents" \
 
 Common per-URL error tags include `CRAWL_NOT_FOUND`, `CRAWL_TIMEOUT`, `CRAWL_LIVECRAWL_TIMEOUT`, `SOURCE_NOT_AVAILABLE`, `UNSUPPORTED_URL`, and `CRAWL_UNKNOWN_ERROR`.
 
+## Failure Handling
+
+- Inspect every `statuses` entry, including on HTTP 200 responses.
+- Retry crawl timeouts only when a live crawl is required and the caller's latency budget permits it.
+- Do not retry unsupported or unavailable sources unchanged; report the affected URLs and error tags.
+- Preserve successful URL results when a batch partially fails, and identify failed URLs separately.
+
 ## Critical Pitfalls
 
 - Keep `text`, `highlights`, and `summary` at the top level on `/contents`.
@@ -192,3 +199,10 @@ Common per-URL error tags include `CRAWL_NOT_FOUND`, `CRAWL_TIMEOUT`, `CRAWL_LIV
 - Prefer `maxAgeHours` for freshness and pair it with `livecrawlTimeout` when crawl latency matters.
 - Use `subpageTarget` with `subpages`; otherwise subpage selection is best effort.
 - Pick one of `highlights`, `text`, or `summary` by default. Stack modes only when the caller truly needs multiple views of each page.
+
+## Verification
+
+- Confirm the request uses `POST /contents` with extraction options at the top level.
+- Match each requested URL to a result or explicit error status.
+- Verify the requested content mode, freshness policy, and subpage bounds are reflected in the response.
+- Report partial batch failures instead of presenting the batch as fully successful.
