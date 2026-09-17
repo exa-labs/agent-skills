@@ -66,6 +66,7 @@ POST https://api.exa.ai/agent/runs
 | `outputSchema` | object | JSON Schema for validated `output.structured` |
 | `previousRunId` | string | Continue from a completed prior run |
 | `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, or `auto`. |
+| `budget.maxCostDollars` | number | Per-run spend ceiling in dollars, `1` to `100`. Only accepted with `auto`; defaults to `$5`. |
 | `dataSources` | object[] | Exa Connect providers to attach to the run, for example `{ "provider": "similarweb" }` |
 
 `outputSchema` supports JSON Schema. Bound list outputs with `maxItems` where possible so output size and enrichment cost are predictable.
@@ -74,7 +75,7 @@ Always send an explicit `effort`. Prefer `auto` unless the task or product needs
 
 To request contact information, describe the desired contact fields in the schema. Use standard JSON Schema formats such as `{ "type": "string", "format": "email" }`, `{ "type": "string", "format": "phone" }`, and `{ "type": "string", "format": "uri" }`.
 
-The current Agent spec also accepts `budget.maxCostDollars` for compatibility, but documents it as ignored. Do not treat it as a hard spend cap.
+`auto` is metered by usage and capped by `budget.maxCostDollars` (default `$5`). The cap is a ceiling, not a fixed price: runs that finish early cost less. Fixed efforts bill a flat per-request price and reject `budget`.
 
 ## Lifecycle
 
@@ -94,6 +95,7 @@ Completed runs include:
 - `output.structured`: validated JSON matching `outputSchema`, when provided
 - `output.grounding`: citations for text or structured fields
 - `costDollars`: run cost breakdown
+- `stopReason`: `schema_satisfied`, `budget_reached`, `error`, or `cancelled`
 
 ## Polling
 
@@ -239,4 +241,4 @@ if (finished.status === "completed") {
 - Use `input.data` for known rows to enrich; do not paste huge row sets into `query`.
 - Use `input.exclusion` for records that should not be surfaced again.
 - `previousRunId` must reference a completed run.
-- `budget.maxCostDollars` is compatibility-only in the current spec; do not rely on it for enforcement.
+- `budget.maxCostDollars` is only accepted with `auto`; a fixed effort plus `budget` is rejected. It is a ceiling, not a guaranteed spend.
