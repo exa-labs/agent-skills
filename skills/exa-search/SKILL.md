@@ -187,7 +187,7 @@ Use `auto` unless latency or reasoning depth is the primary constraint. Use `fas
 
 ## Structured Output
 
-Use `systemPrompt` for behavior and `outputSchema` for shape.
+Use `systemPrompt` for behavior and `outputSchema` for shape. Keep the schema compact: a handful of named fields, shallow nesting, arrays that declare `items`. The example below is about as wide as `/search` wants. If you need more columns, drop the least important ones rather than grow the schema.
 
 ```bash
 curl -sS -X POST "https://api.exa.ai/search" \
