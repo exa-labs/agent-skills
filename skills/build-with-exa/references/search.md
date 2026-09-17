@@ -169,7 +169,28 @@ Keep `contents: {"highlights": true}` on the request so the fields are filled fr
 
 A compact schema (the author and URL above) stays on `auto`. When the schema is wide, or its fields take more than one search to fill (several facts per entity, values that live on different pages), set `type: "deep"`: it runs several searches instead of one, so more of the fields come back filled.
 
-Keep schemas small and explicit. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
+Keep schemas small and explicit — `outputSchema` has hard limits: the API counts every key under `properties` at every level (the names of nested objects and arrays count too) and rejects a schema over 10 keys, properties more than 2 levels deep, or an array without `items`. This schema spends 5 of the 10 keys — `matches`, `site`, `url`, `quote`, `verdict`:
+
+```json
+{
+  "properties": {
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "site": { "type": "string" },
+          "url": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string" }
+  }
+}
+```
+
+When the ask needs more than fits, drop the least important fields rather than send a schema over the cap. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
 
 ## Category
 
