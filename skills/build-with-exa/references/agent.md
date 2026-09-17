@@ -10,7 +10,6 @@ Async multi-step research, list-building, enrichment, and structured extraction 
 - List runs: `https://exa.ai/docs/reference/agent-api/list-runs`
 - List run events: `https://exa.ai/docs/reference/agent-api/list-run-events`
 - Cancel a run: `https://exa.ai/docs/reference/agent-api/cancel-a-run`
-- Stop a run (`max` effort only): `https://exa.ai/docs/reference/agent-api/stop-a-run`
 - Delete a run: `https://exa.ai/docs/reference/agent-api/delete-a-run`
 - Exa Connect overview: `https://exa.ai/docs/reference/agent-api/connect/overview`
 - Connect combining providers: `https://exa.ai/docs/reference/agent-api/connect/combining-providers`
@@ -66,35 +65,17 @@ POST https://api.exa.ai/agent/runs
 | `input.exclusion` | object[] | Records or entities Agent should avoid surfacing |
 | `outputSchema` | object | JSON Schema for validated `output.structured` |
 | `previousRunId` | string | Continue from a completed prior run |
-| `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, `auto`, or `max` (beta, see below). |
-| `budget.maxCostDollars` | number | Per-run spend ceiling in dollars, `1` to `100`. Only accepted with `auto` or `max`; defaults to `$5` for `auto` and `$20` for `max`. |
+| `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, or `auto`. |
+| `budget.maxCostDollars` | number | Per-run spend ceiling in dollars, `1` to `100`. Only accepted with `auto`; defaults to `$5`. |
 | `dataSources` | object[] | Exa Connect providers to attach to the run, for example `{ "provider": "similarweb" }` |
 
 `outputSchema` supports JSON Schema. Bound list outputs with `maxItems` where possible so output size and enrichment cost are predictable.
 
-Always send an explicit `effort`. Prefer `auto` unless the task or product needs a fixed cost/latency band (`low` for cheap/fast, `high` / `xhigh` for harder research), or `max` when completeness matters more than cost or latency.
+Always send an explicit `effort`. Prefer `auto` unless the task or product needs a fixed cost/latency band (`low` for cheap/fast, `high` / `xhigh` for harder research).
 
 To request contact information, describe the desired contact fields in the schema. Use standard JSON Schema formats such as `{ "type": "string", "format": "email" }`, `{ "type": "string", "format": "phone" }`, and `{ "type": "string", "format": "uri" }`.
 
-`auto` and `max` are metered by usage and capped by `budget.maxCostDollars` (default `$5` for `auto`, `$20` for `max`). The cap is a ceiling, not a fixed price: runs that finish early cost less. Fixed efforts reject `budget`.
-
-### Max effort (beta)
-
-`max` is the highest-effort tier for large list building, deep multi-source research, and criteria that are hard to verify. Requests with `effort: "max"` must send the header `Exa-Beta: agent-max-effort-2026-07-27` (comma-separate multiple beta tokens). In the SDKs, call `exa.beta.agent.runs.create(...)` with `betas=["agent-max-effort-2026-07-27"]` (Python) or `betas: ["agent-max-effort-2026-07-27"]` (TypeScript); the plain `exa.agent.runs.create` path does not send the header.
-
-```bash
-curl -s -X POST "https://api.exa.ai/agent/runs" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $EXA_API_KEY" \
-  -H "Exa-Beta: agent-max-effort-2026-07-27" \
-  -d '{
-    "query": "Find all companies building browser automation tools in the United States.",
-    "effort": "max",
-    "budget": { "maxCostDollars": 10 }
-  }'
-```
-
-A `max` run can be ended early with `POST /agent/runs/{id}/stop` (same beta header). The run completes with the results gathered so far and `stopReason: stopped`, billed for usage up to the stop. `cancel` discards results instead. `stop` is only supported for `max` runs.
+`auto` is metered by usage and capped by `budget.maxCostDollars` (default `$5`). The cap is a ceiling, not a fixed price: runs that finish early cost less. Fixed efforts bill a flat per-request price and reject `budget`.
 
 ## Lifecycle
 
@@ -114,7 +95,7 @@ Completed runs include:
 - `output.structured`: validated JSON matching `outputSchema`, when provided
 - `output.grounding`: citations for text or structured fields
 - `costDollars`: run cost breakdown
-- `stopReason`: `schema_satisfied`, `budget_reached`, `stopped` (a `max` run ended via `/stop`), `error`, or `cancelled`
+- `stopReason`: `schema_satisfied`, `budget_reached`, `error`, or `cancelled`
 
 ## Polling
 
@@ -260,5 +241,4 @@ if (finished.status === "completed") {
 - Use `input.data` for known rows to enrich; do not paste huge row sets into `query`.
 - Use `input.exclusion` for records that should not be surfaced again.
 - `previousRunId` must reference a completed run.
-- `budget.maxCostDollars` is only accepted with `auto` or `max`; a fixed effort plus `budget` is rejected. It is a ceiling, not a guaranteed spend.
-- `effort: "max"` without the `Exa-Beta: agent-max-effort-2026-07-27` header fails. In the SDKs use `exa.beta.agent.runs.create` with `betas`.
+- `budget.maxCostDollars` is only accepted with `auto`; a fixed effort plus `budget` is rejected. It is a ceiling, not a guaranteed spend.
