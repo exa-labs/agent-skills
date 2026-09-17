@@ -9,6 +9,7 @@ Known-URL extraction surface via `POST /contents`.
 - Contents coding-agent reference: `/reference/contents-api-guide-for-coding-agents`
 - Contents best practices: `/reference/contents-best-practices`
 - Content freshness: `/reference/livecrawling-contents`
+- Exa Snapshot: `/search/snapshot`
 
 ## Contents
 
@@ -16,6 +17,7 @@ Known-URL extraction surface via `POST /contents`.
 - Request shape
 - Top-level content fields
 - Freshness controls
+- Snapshot
 - Response and statuses
 - Critical pitfalls
 
@@ -48,6 +50,7 @@ POST https://api.exa.ai/contents
 | `highlights` | boolean or object | Top-level highlights extraction control |
 | `summary` | boolean or object | Top-level summary extraction control |
 | `maxAgeHours` | integer | Normative freshness control |
+| `snapshotAsOf` | string (ISO 8601 date-time) | Exa Snapshot: serve the newest stored version of each page at or before this instant |
 | `livecrawlTimeout` | integer | Timeout in milliseconds |
 | `subpages` | integer | Crawl linked subpages |
 | `subpageTarget` | string or string[] | Focus which subpages to crawl |
@@ -94,6 +97,10 @@ Use `maxAgeHours` for crawl freshness. It caps how old cached page content may b
 Set `livecrawlTimeout` whenever live crawling matters so slow pages do not block the whole request longer than expected.
 
 Do not send `livecrawl` and `maxAgeHours` together; prefer `maxAgeHours` in requests.
+
+## Snapshot
+
+Top-level `snapshotAsOf` (ISO 8601 date-time) serves the newest stored version of each page at or before that instant instead of the current page: Exa Snapshot. It is the opposite of `maxAgeHours`; never send both. Full request shapes, statuses, and limits are in `references/snapshot.md`.
 
 ## Response and Statuses
 
