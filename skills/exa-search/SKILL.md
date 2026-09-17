@@ -187,7 +187,7 @@ Use `auto` unless latency or reasoning depth is the primary constraint. Use `fas
 
 ## Structured Output
 
-Use `systemPrompt` for behavior and `outputSchema` for shape. On `/search`, `outputSchema` has hard limits that apply to every `type`: the API counts every key under `properties` at every level (the names of nested objects and arrays count too — the example below spends 3 of 10 keys: `models`, `name`, `notable_claims`) and rejects a schema over 10 keys, properties more than 2 levels deep, or an array without `items`. When the ask needs more than fits, drop the least important fields rather than send a schema over the cap. These caps are specific to `/search`; `/answer` does not enforce the key or depth limits (arrays still need `items`).
+Use `systemPrompt` for behavior and `outputSchema` for shape. Keep the schema compact: a handful of named fields, shallow nesting, arrays that declare `items`. The example below is about as wide as `/search` wants. If you need more columns, drop the least important ones rather than grow the schema.
 
 ```bash
 curl -sS -X POST "https://api.exa.ai/search" \

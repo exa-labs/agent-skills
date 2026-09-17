@@ -169,10 +169,11 @@ Keep `contents: {"highlights": true}` on the request so the fields are filled fr
 
 A compact schema (the author and URL above) stays on `auto`. When the schema is wide, or its fields take more than one search to fill (several facts per entity, values that live on different pages), set `type: "deep"`: it runs several searches instead of one, so more of the fields come back filled.
 
-Keep schemas small and explicit — on `/search`, `outputSchema` has hard limits that apply to every `type` (`auto`, `fast`, `deep`, `deep-reasoning`): the API counts every key under `properties` at every level (the names of nested objects and arrays count too) and rejects a schema over 10 keys, properties more than 2 levels deep, or an array without `items`. This schema spends 5 of the 10 keys — `matches`, `site`, `url`, `quote`, `verdict`:
+Keep schemas small and explicit. A handful of named fields, one nested object at most, arrays that declare `items`. This is about as far as `/search` wants you to go:
 
 ```json
 {
+  "type": "object",
   "properties": {
     "matches": {
       "type": "array",
@@ -190,7 +191,7 @@ Keep schemas small and explicit — on `/search`, `outputSchema` has hard limits
 }
 ```
 
-When the ask needs more than fits, drop the least important fields rather than send a schema over the cap. These caps are specific to `/search`: `/answer` does not enforce the key or depth limits (arrays still need `items`), and agent runs have no schema caps. Exa's structured output guidance favors compact, bounded schemas over deeply nested shapes. Use deeper search variants when the retrieval task itself needs more reasoning or synthesis depth.
+If the ask needs more columns than that, drop the least important ones or send the job to `/agent`. Do not fatten or deepen the schema and hope. Compact schemas also synthesize better. Use a deeper search `type` when the retrieval itself needs more reasoning, not because the output is JSON.
 
 ## Category
 
