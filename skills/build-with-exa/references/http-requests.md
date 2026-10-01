@@ -8,10 +8,10 @@ Minimal cURL examples across the main Exa surfaces.
 - Search reference: `/reference/search`
 - Contents reference: `/reference/get-contents`
 - Answer reference: `/reference/answer`
-- OpenAI SDK compatibility: `/reference/openai-sdk`
-- Agent API guide: `/reference/agent-api-guide`
-- Exa Connect overview: `/reference/agent-api/connect/overview`
-- Monitors guide: `/reference/monitors-api-guide`
+- OpenAI SDK compatibility: `/integrations/openai-sdk`
+- Agent API guide: `/agent/quickstart`
+- Exa Connect overview: `/agent/connect/quickstart`
+- Monitors guide: `/monitors/quickstart`
 - Websets overview: `/reference/websets-api`
 
 ## Contents

@@ -5,8 +5,8 @@ Durable usage patterns for Exa queries, output control, and content retrieval.
 ## Canonical Docs Links
 
 - Base docs URL: `https://exa.ai/docs`
-- Search best practices: `/reference/search-best-practices`
-- Contents best practices: `/reference/contents-best-practices`
+- Search best practices: `/search/best-practices`
+- Contents best practices: `/contents/quickstart`
 - Answer reference: `/reference/answer`
 
 ## Contents
@@ -99,6 +99,7 @@ It matters less on:
 - Question-first UI with no app-side LLM: consider `/answer`
 - App already has a chat LLM, or search-results-first UI: use `/search`
 - Known URLs: use `/contents`
+- Code retrieval: use `/search`
 - Repeated recurring tracking: use `/monitors`
 - List-building and enrichment: use `/agent`
 
@@ -116,8 +117,14 @@ TOOLS = [{
         "description": "Search the live web and return the most relevant URLs and content. Use for fresh information beyond the model's training data.",
         "parameters": {
             "type": "object",
-            "properties": {"query": {"type": "string"}},
-            "required": ["query"],
+            "properties": {
+                "query": {"type": "string"},
+                "objective": {
+                    "type": "string",
+                    "description": "Goal for this search turn; say which documents should rank first, which should be excluded, and what specific facts or figures to pull from them.",
+                },
+            },
+            "required": ["query", "objective"],
         },
     },
 }]
@@ -131,8 +138,14 @@ TOOLS = [{
     "description": "Search the live web and return the most relevant URLs and content. Use for fresh information beyond the model's training data.",
     "input_schema": {
         "type": "object",
-        "properties": {"query": {"type": "string"}},
-        "required": ["query"],
+        "properties": {
+            "query": {"type": "string"},
+            "objective": {
+                "type": "string",
+                "description": "Goal for this search turn; say which documents should rank first, which should be excluded, and what specific facts or figures to pull from them.",
+            },
+        },
+        "required": ["query", "objective"],
     },
 }]
 ```
@@ -140,14 +153,14 @@ TOOLS = [{
 The tool body is the same Exa call either way:
 
 ```python
-def exa_search(query: str):
-    return exa.search(query, type="auto", contents={"highlights": True})
+def exa_search(query: str, objective: str | None = None):
+    return exa.search(query, objective=objective, type="auto", contents={"highlights": True})
 ```
 
 Design tips:
 
 - Say "search the live web" in the description so the LLM picks Exa for fresh-info queries
-- Keep `query` the only required field; let the LLM compose natural-language queries
+- Let the LLM choose `query` and `objective`, and forward both to `exa.search` unchanged; the recommended `objective` description is at https://docs.exa.ai/search/best-practices#pass-the-objective-from-agents
 - Do not expose or hardcode categories, domain filters, or result counts the user never asked for
 - Return `highlights` rather than full `text` to keep tool-result tokens small
 - Add separate `exa_answer` or `exa_get_contents` tools instead of overloading one search tool when the agent also needs grounded answers or known-URL extraction

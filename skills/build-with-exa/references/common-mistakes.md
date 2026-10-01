@@ -5,9 +5,9 @@ Frequent Exa parameter-shape, over-specification, and deprecation mistakes, with
 ## Canonical Docs Links
 
 - Base docs URL: `https://exa.ai/docs`
-- Search coding-agent reference: `/reference/search-api-guide-for-coding-agents`
-- Contents coding-agent reference: `/reference/contents-api-guide-for-coding-agents`
-- Monitors coding-agent reference: `/reference/monitors-api-guide-for-coding-agents`
+- Search coding-agent reference: `/search/quickstart`
+- Contents coding-agent reference: `/contents/quickstart`
+- Monitors coding-agent reference: `/monitors/quickstart`
 
 ## Over-Specification
 

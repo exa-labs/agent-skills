@@ -6,7 +6,7 @@ Grounded answer generation surface via `POST /answer`.
 
 - Base docs URL: `https://exa.ai/docs`
 - Answer reference: `/reference/answer`
-- OpenAI-compatible guide: `/reference/openai-sdk`
+- OpenAI-compatible guide: `/integrations/openai-sdk`
 
 ## Contents
 
