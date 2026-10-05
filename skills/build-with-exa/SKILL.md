@@ -3,7 +3,7 @@ name: build-with-exa
 description: "Build applications and agents with Exa's API: search, contents extraction, answer, Agent API, monitors, websets, OpenAI-compatible endpoints, and exa-py/exa-js SDKs. Use when choosing Exa endpoints, writing Exa API calls, integrating semantic web search or research into products, or debugging Exa request shapes."
 metadata:
   author: Exa
-  version: "0.2.0"
+  version: "0.3.0"
   docs: "https://exa.ai/docs"
 ---
 
@@ -17,6 +17,7 @@ Included by default:
 - Long-running research workflows: Agent API (`/agent`)
 - Async and recurring workflows: Monitors API
 - Legacy surface: Websets API (existing integrations only; new collection-building work uses the Agent API)
+- Historical content: Exa Snapshot (`snapshotAsOf` on search and contents)
 - SDK guidance: Python `exa-py`, TypeScript `exa-js`
 
 > Note on data retention: `/search`, `/answer`, and `/agent/` offer Zero Data Retention (ZDR). Websets and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
@@ -75,11 +76,12 @@ Before picking an endpoint, decide which workflow shape fits:
 2. Already know the URLs and need clean page extraction or freshness controls: use the contents endpoint (`/contents`)
 3. Need pages related to a known seed URL: use the search endpoint (`/search`) with a query derived from the page (for example title, topic, or text from `/contents`)
 4. Need a grounded answer with citations and no LLM of your own doing generation: use the answer endpoint (`/answer`). If the product already has a chat LLM, give it `/search` as a tool instead.
-5. Need OpenAI SDK drop-in compatibility for chat or responses clients: use the OpenAI-compatible endpoints (`/chat/completions`, `/responses`)
-6. Need asynchronous multi-step research, list-building, enrichment, or follow-up questions over prior research: use the Agent API (`/agent`)
-7. Need scheduled recurring search with webhook delivery: use the Monitors API (`/monitors`)
-8. Maintaining an existing Websets integration: see the migration guide (`references/migrate-websets-to-agent.md`) and transition to the Agent API (`references/agent.md`). Do not use Websets for new work; use the Agent API instead.
-9. Need page content as it was at a past datetime (backtesting agents, reproducible evals, comparing earlier versions of docs, pricing pages, policies, or filings): use Exa Snapshot, the `snapshotAsOf` field on `/contents` (top level) or `/search` (inside `contents`). See `references/snapshot.md`.
+5. Need code-focused retrieval from repos, docs, and Stack Overflow: use the search endpoint (`/search`)
+6. Need OpenAI SDK drop-in compatibility for chat or responses clients: use the OpenAI-compatible endpoints (`/chat/completions`, `/responses`)
+7. Need asynchronous multi-step research, list-building, enrichment, or follow-up questions over prior research: use the Agent API (`/agent`)
+8. Need scheduled recurring search with webhook delivery: use the Monitors API (`/monitors`)
+9. Maintaining an existing Websets integration: see the migration guide (`references/migrate-websets-to-agent.md`) and transition to the Agent API (`references/agent.md`). Do not use Websets for new work; use the Agent API instead.
+10. Need page content as it was at a past datetime (backtesting agents, reproducible evals, comparing earlier versions of docs, pricing pages, policies, or filings): use Exa Snapshot, the `snapshotAsOf` field on `/contents` (top level) or `/search` (inside `contents`). See `references/snapshot.md`.
 
 ## Quick Start
 
@@ -171,8 +173,8 @@ curl -X POST "https://api.exa.ai/search" \
 - Docs home: `https://exa.ai/docs`
 - Documentation index: `https://exa.ai/docs/llms.txt`
 - Search reference: `https://exa.ai/docs/reference/search`
-- Agent API guide: `https://exa.ai/docs/reference/agent-api-guide`
-- Exa Connect overview: `https://exa.ai/docs/reference/agent-api/connect/overview`
+- Agent API guide: `https://exa.ai/docs/agent/quickstart`
 - Exa Snapshot: `https://exa.ai/docs/search/snapshot`
-- Python SDK spec: `https://exa.ai/docs/sdks/python-sdk-specification`
-- TypeScript SDK spec: `https://exa.ai/docs/sdks/typescript-sdk-specification`
+- Exa Connect overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Python SDK spec: `https://exa.ai/docs/sdks/quickstart`
+- TypeScript SDK spec: `https://exa.ai/docs/sdks/quickstart`

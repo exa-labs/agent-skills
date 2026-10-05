@@ -4,16 +4,16 @@ Async multi-step research, list-building, enrichment, and structured extraction 
 
 ## Canonical Docs Links
 
-- Agent API guide: `https://exa.ai/docs/reference/agent-api-guide`
+- Agent API guide: `https://exa.ai/docs/agent/quickstart`
 - Create a run: `https://exa.ai/docs/reference/agent-api/create-a-run`
 - Get a run: `https://exa.ai/docs/reference/agent-api/get-a-run`
 - List runs: `https://exa.ai/docs/reference/agent-api/list-runs`
 - List run events: `https://exa.ai/docs/reference/agent-api/list-run-events`
 - Cancel a run: `https://exa.ai/docs/reference/agent-api/cancel-a-run`
 - Delete a run: `https://exa.ai/docs/reference/agent-api/delete-a-run`
-- Exa Connect overview: `https://exa.ai/docs/reference/agent-api/connect/overview`
-- Connect combining providers: `https://exa.ai/docs/reference/agent-api/connect/combining-providers`
-- Connect providers: `https://exa.ai/docs/reference/agent-api/connect/fiber`, `https://exa.ai/docs/reference/agent-api/connect/similarweb`, `https://exa.ai/docs/reference/agent-api/connect/baselayer`, `https://exa.ai/docs/reference/agent-api/connect/affiliatecom`, `https://exa.ai/docs/reference/agent-api/connect/particle`, `https://exa.ai/docs/reference/agent-api/connect/financialdatasets`, `https://exa.ai/docs/reference/agent-api/connect/jinko`, `https://exa.ai/docs/reference/agent-api/connect/additional-partners`
+- Exa Connect overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Connect combining providers: `https://exa.ai/docs/agent/connect/combining-providers`
+- Connect providers: `https://exa.ai/docs/agent/connect/fiber`, `https://exa.ai/docs/agent/connect/similarweb`, `https://exa.ai/docs/agent/connect/baselayer`, `https://exa.ai/docs/agent/connect/affiliatecom`, `https://exa.ai/docs/agent/connect/particle`, `https://exa.ai/docs/agent/connect/financialdatasets`, `https://exa.ai/docs/agent/connect/jinko`, `https://exa.ai/docs/agent/connect/additional-partners`
 
 ## Overview
 
@@ -65,17 +65,18 @@ POST https://api.exa.ai/agent/runs
 | `input.exclusion` | object[] | Records or entities Agent should avoid surfacing |
 | `outputSchema` | object | JSON Schema for validated `output.structured` |
 | `previousRunId` | string | Continue from a completed prior run |
-| `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, or `auto`. |
-| `budget.maxCostDollars` | number | Per-run spend ceiling in dollars, `1` to `100`. Only accepted with `auto`; defaults to `$5`. |
+| `effort` | string | Always set explicitly: `minimal`, `low`, `medium`, `high`, `xhigh`, `auto`, or `ultra`. |
+| `budget.maxCostDollars` | number | Per-run spend ceiling in dollars, `1` to `100`. Only accepted with `auto` and `ultra`; defaults to `$5` for `auto` and `$20` for `ultra`. |
+| `budget.maxDurationSeconds` | number | Soft wall-clock ceiling in seconds, `300` to `10800`. Only accepted with `ultra`; the run returns what it has with `stopReason: "time_limit_reached"`. |
 | `dataSources` | object[] | Exa Connect providers to attach to the run, for example `{ "provider": "similarweb" }` |
 
 `outputSchema` supports JSON Schema. Bound list outputs with `maxItems` where possible so output size and enrichment cost are predictable.
 
-Always send an explicit `effort`. Prefer `auto` unless the task or product needs a fixed cost/latency band (`low` for cheap/fast, `high` / `xhigh` for harder research).
+Always send an explicit `effort`. Prefer `auto` unless the task or product needs a fixed cost/latency band (`low` for cheap/fast, `high` / `xhigh` for harder research). Use `ultra` for large list building, exhaustive multi-source research, or hard-to-verify criteria where completeness matters more than latency or cost.
 
 To request contact information, describe the desired contact fields in the schema. Use standard JSON Schema formats such as `{ "type": "string", "format": "email" }`, `{ "type": "string", "format": "phone" }`, and `{ "type": "string", "format": "uri" }`.
 
-`auto` is metered by usage and capped by `budget.maxCostDollars` (default `$5`). The cap is a ceiling, not a fixed price: runs that finish early cost less. Fixed efforts bill a flat per-request price and reject `budget`.
+`auto` and `ultra` are metered by usage and capped by `budget.maxCostDollars` (default `$5` for `auto`, `$20` for `ultra`). The cap is a ceiling, not a fixed price: runs that finish early cost less. Fixed efforts bill a flat per-request price and reject `budget`.
 
 ## Lifecycle
 
@@ -95,7 +96,7 @@ Completed runs include:
 - `output.structured`: validated JSON matching `outputSchema`, when provided
 - `output.grounding`: citations for text or structured fields
 - `costDollars`: run cost breakdown
-- `stopReason`: `schema_satisfied`, `budget_reached`, `error`, or `cancelled`
+- `stopReason`: `schema_satisfied`, `budget_reached`, `time_limit_reached` (`ultra` only), `stopped`, `error`, or `cancelled`
 
 ## Polling
 
@@ -166,9 +167,9 @@ Use `dataSources` to attach Exa Connect providers to a run. The agent can call t
 
 Use the Connect docs for provider IDs, pricing, and field-specific examples:
 
-- Overview: `https://exa.ai/docs/reference/agent-api/connect/overview`
-- Combining providers: `https://exa.ai/docs/reference/agent-api/connect/combining-providers`
-- Provider pages: `fiber`, `similarweb`, `baselayer`, `affiliatecom`, `particle`, `financialdatasets`, `jinko`, and `additional-partners` under `/reference/agent-api/connect/`
+- Overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Combining providers: `https://exa.ai/docs/agent/connect/combining-providers`
+- Provider pages: `fiber`, `similarweb`, `baselayer`, `affiliatecom`, `particle`, `financialdatasets`, `jinko`, and `additional-partners` under `/agent/connect/`
 
 ## SDK Naming
 
@@ -241,4 +242,4 @@ if (finished.status === "completed") {
 - Use `input.data` for known rows to enrich; do not paste huge row sets into `query`.
 - Use `input.exclusion` for records that should not be surfaced again.
 - `previousRunId` must reference a completed run.
-- `budget.maxCostDollars` is only accepted with `auto`; a fixed effort plus `budget` is rejected. It is a ceiling, not a guaranteed spend.
+- `budget.maxCostDollars` is only accepted with `auto` and `ultra`; a fixed effort plus `budget` is rejected. It is a ceiling, not a guaranteed spend.

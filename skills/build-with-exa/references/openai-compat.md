@@ -5,7 +5,7 @@ Compatibility layer for OpenAI SDK clients.
 ## Canonical Docs Links
 
 - Base docs URL: `https://exa.ai/docs`
-- OpenAI SDK compatibility: `/reference/openai-sdk`
+- OpenAI SDK compatibility: `/integrations/openai-sdk`
 - OpenAI Responses API with Exa: `/reference/openai-responses-api-with-exa`
 
 ## Overview

@@ -126,6 +126,6 @@ Neither `maxAgeHours: 0` (force a live crawl) nor a published-date filter return
 
 1. Do not answer "snapshot" with a plain `/contents` request or with `maxAgeHours`; only `snapshotAsOf` returns a stored past version.
 2. On `/contents` the field is top level; on `/search` it is nested inside `contents`.
-3. Do not combine `snapshotAsOf` with `maxAgeHours` or `livecrawl`.
+3. Do not combine `snapshotAsOf` with `maxAgeHours`, `livecrawl`, `livecrawlTimeout`, or `subpages`; the request is rejected with `INVALID_REQUEST`. On `/search`, only `auto`, `fast`, and `instant` types are supported (not `deep-lite`, `deep`, `deep-reasoning`) and `category` is not supported.
 4. Search results under `snapshotAsOf` are content-bounded, not ranking-bounded; say so when the task is "what would a search have returned then".
 5. Expect omissions: pages without a stored version before the cutoff are dropped (`CONTENT_NOT_CACHED` on `/contents`), so check `statuses` and result counts.

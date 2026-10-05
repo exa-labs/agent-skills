@@ -5,8 +5,8 @@ Standalone recurring-search surface via `https://api.exa.ai/monitors`.
 ## Canonical Docs Links
 
 - Base docs URL: `https://exa.ai/docs`
-- Monitors guide: `/reference/monitors-api-guide`
-- Monitors coding-agent reference: `/reference/monitors-api-guide-for-coding-agents`
+- Monitors guide: `/monitors/quickstart`
+- Monitors coding-agent reference: `/monitors/quickstart`
 
 ## Contents
 

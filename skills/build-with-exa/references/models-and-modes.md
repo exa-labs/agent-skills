@@ -6,7 +6,7 @@ Stable selection guidance for Exa search types and compatibility-layer model rou
 
 - Base docs URL: `https://exa.ai/docs`
 - Search reference: `/reference/search`
-- OpenAI SDK compatibility: `/reference/openai-sdk`
+- OpenAI SDK compatibility: `/integrations/openai-sdk`
 
 ## Search Types
 

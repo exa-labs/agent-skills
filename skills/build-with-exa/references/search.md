@@ -6,9 +6,9 @@ Primary semantic retrieval surface for new Exa integrations via `POST /search`.
 
 - Base docs URL: `https://exa.ai/docs`
 - Search reference: `/reference/search`
-- Search coding-agent reference: `/reference/search-api-guide-for-coding-agents`
-- Search best practices: `/reference/search-best-practices`
-- Content freshness: `/reference/livecrawling-contents`
+- Search coding-agent reference: `/search/quickstart`
+- Search best practices: `/search/best-practices`
+- Content freshness: `/search/quickstart#content-freshness`
 - Exa Snapshot: `/search/snapshot`
 
 ## Contents
@@ -63,12 +63,13 @@ Every parameter below changes behavior away from the server defaults. Add one on
 
 | Parameter | Type | Add only when |
 | --- | --- | --- |
-| `numResults` | integer | A specific result count is an intentional product decision. The server default is 10. |
+| `numResults` | integer | A maximum result count is an intentional product decision. The default is 10, the maximum is 100, and fewer results may be returned. Search does not support pagination. |
 | `category` | string | The user explicitly requests category-constrained retrieval. See Category. |
 | `includeDomains` | string[] | The user explicitly requests a hard allowlist and supplies or approves its contents. Supports paths and wildcards such as `openai.com/blog` or `*.substack.com`. |
 | `excludeDomains` | string[] | The user explicitly requests a hard blocklist and supplies or approves its contents. Do not convert source preferences or examples into filters; use query phrasing or `systemPrompt`. |
 | `startPublishedDate` / `endPublishedDate` | string (ISO 8601) | The task states a bounded window that must be enforced ("the last seven days", "in 2026"). Hard filters drop undated and misdated pages; "recent" or "latest" alone belongs in the query, not here. |
 | `userLocation` | string | The task is location-sensitive. Two-letter ISO country code. |
+| `objective` | string | The search is one step of a larger task. The broader goal the search serves: which documents should rank first or be excluded for it, and what to pull from them. Up to 4096 characters. When a model picks the query, let it fill this in too (see the tool-calling pattern in [prompting-and-patterns.md](prompting-and-patterns.md)). |
 | `systemPrompt` | string | The task uses synthesized output and needs behavior, emphasis, or source-preference guidance. |
 | `outputSchema` | object | The task requires structured output in `output.content`. |
 | `stream` | boolean | The caller consumes typed SSE chunks for synthesized output. |
@@ -197,7 +198,7 @@ If the ask needs more columns than that, drop the least important ones or send t
 
 ## Category
 
-Do not set `category` unless the user explicitly requests category-constrained retrieval. Mapping task nouns to categories — news tasks to `news`, people tasks to `people`, paper tasks to `publication` — is a mistake: the default index already handles those queries, and the query text itself is the right place to express the topic.
+Set `category` only when the results must belong to a specific data category; it limits retrieval to that category's index. Mapping task nouns to categories — news tasks to `news`, people tasks to `people`, paper tasks to `publication` — is a mistake: the default index already handles those queries, and the query text itself is the right place to express the topic.
 
 When a user does explicitly request it, documented values include `company`, `people`, `publication`, `news`, `personal site`, and `financial report`. Never invent categories such as `github`, `documentation`, `qa`, or `pdf`. For coding queries, use plain `/search`.
 
@@ -207,10 +208,8 @@ List-building and enrichment workflows do not belong here. Finding stakeholders,
 
 When those categories are legitimately in use, they restrict which filters are valid:
 
-- `people` does not support date or crawl-date filters, and does not support `excludeDomains`
-- for `people`, `includeDomains` only accepts LinkedIn domains
-- `company` does not support date or crawl-date filters
-- `company` supports `excludeDomains`
+- `people` supports `includeDomains`, but not `excludeDomains`, text filters, or publication-date and crawl-date filters
+- `company` supports domain and text filters, but not publication-date or crawl-date filters
 - unsupported category/filter combinations return a 400 error
 
 For `people` search in particular, push the filtering logic into the natural-language query.

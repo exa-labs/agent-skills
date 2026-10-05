@@ -6,9 +6,9 @@ Known-URL extraction surface via `POST /contents`.
 
 - Base docs URL: `https://exa.ai/docs`
 - Contents reference: `/reference/get-contents`
-- Contents coding-agent reference: `/reference/contents-api-guide-for-coding-agents`
-- Contents best practices: `/reference/contents-best-practices`
-- Content freshness: `/reference/livecrawling-contents`
+- Contents coding-agent reference: `/contents/quickstart`
+- Contents best practices: `/contents/quickstart`
+- Content freshness: `/contents/quickstart#content-freshness`
 - Exa Snapshot: `/search/snapshot`
 
 ## Contents

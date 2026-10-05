@@ -7,9 +7,9 @@ Do not start new collection-building work on Websets; new work goes directly to 
 
 ## Canonical Docs Links
 
-- Agent API guide: `https://exa.ai/docs/reference/agent-api-guide`
+- Agent API guide: `https://exa.ai/docs/agent/quickstart`
 - Create a run: `https://exa.ai/docs/reference/agent-api/create-a-run`
-- Websets overview (legacy): `https://exa.ai/docs/reference/websets-api`
+- Websets overview (legacy): `https://exa.ai/docs/websets/quickstart`
 
 When this guide and the live docs disagree on an API fact, the docs win. Never invent model availability, limits, defaults, or API behavior: if a fact is in neither this guide nor the docs, verify it against the live API — or state that you could not.
 
@@ -146,7 +146,7 @@ Always check how the run ended before reading output; only `completed` carries r
 4. **`criteria` semantics must move into the query text.** The agent verifies against the query's constraints; dropping verification rules silently changes results. Call out any criteria you cannot express.
 5. **Do not paste row sets into `query`.** Existing rows to enrich go in `input.data`; records to suppress go in `input.exclusion`.
 6. **`previousRunId` must reference a completed run in the same team.** A follow-up is a new create request returning a new run ID; it does not reuse the prior run's object.
-7. **`budget.maxCostDollars` is a ceiling, not a fixed price, and only applies to `auto`.** Websets cost expectations do not carry over; bound cost with `maxItems` and `effort`, and set `budget.maxCostDollars` (`$1` to `$100`) when using `auto`. Fixed efforts reject `budget`.
+7. **`budget.maxCostDollars` is a ceiling, not a fixed price, and only applies to `auto` and `ultra`.** Websets cost expectations do not carry over; bound cost with `maxItems` and `effort`, and set `budget.maxCostDollars` (`$1` to `$100`) when using `auto` or `ultra`. Fixed efforts reject `budget`.
 8. **Websets-owned monitors are not part of the run.** Recreate recurring refresh on the standalone Monitors API (`/monitors`).
 9. **Data retention changes in your favor.** `/agent` is a Zero Data Retention surface; Websets is not. Update compliance notes that assumed otherwise.
 
