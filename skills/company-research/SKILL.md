@@ -142,7 +142,7 @@ Return:
 
 ## References
 
-- Exa Agent guide: https://docs.exa.ai/reference/agent-api-guide
-- Company Search reference: https://docs.exa.ai/reference/verticals/company-for-coding-agents
-- Exa MCP setup: https://docs.exa.ai/reference/exa-mcp
-- Full docs for LLMs: https://docs.exa.ai/llms.txt
+- Exa Agent guide: https://exa.ai/docs/agent/quickstart
+- Company Search reference: https://exa.ai/docs/search/data/companies-people
+- Exa MCP setup: https://exa.ai/docs/get-started/exa-mcp
+- Full docs for LLMs: https://exa.ai/docs/llms.txt
