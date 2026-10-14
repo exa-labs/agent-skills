@@ -68,7 +68,7 @@ from exa_py import Exa
 
 exa = Exa(api_key="YOUR_EXA_API_KEY")
 result = exa.get_contents(
-    ["https://docs.exa.ai"],
+    ["https://exa.ai/docs"],
     highlights=True
 )
 ```

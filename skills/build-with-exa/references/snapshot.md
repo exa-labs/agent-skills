@@ -119,7 +119,7 @@ Neither `maxAgeHours: 0` (force a live crawl) nor a published-date filter return
 
 ## Limits
 
-- Retention is a rolling window, 5 months at launch.
+- Pay as you go can query a rolling 5-month window.
 - Available on pay as you go at 10 QPS. After 100 Snapshot requests, contact sales (`https://exa.ai/contact/sales`) to continue.
 
 ## Critical Pitfalls
