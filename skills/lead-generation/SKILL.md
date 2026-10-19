@@ -7,7 +7,7 @@ description: Generate enriched lead lists using Exa Agent. Finds companies match
 
 Generate enriched lead lists using the Exa Agent API. An Agent run is an asynchronous, multi-step web research task: you describe the list you want plus an output schema, and Exa handles query decomposition, searching, verification, enrichment, and structured output internally. You do NOT need to orchestrate parallel searches, subagents, or manual deduplication.
 
-For very large or continuously maintained lead lists with per-item verification, consider Exa Websets instead: https://docs.exa.ai/websets/api/overview
+For very large or continuously maintained lead lists with per-item verification, consider Exa Websets instead: https://exa.ai/docs/websets/quickstart
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ This skill requires the Exa MCP server with the Agent tool enabled. Use the `age
 If the Agent tools are not available, tell the user:
 
 > You need the Exa MCP server installed with the Agent tools and your API key.
-> Instructions: https://docs.exa.ai/reference/exa-mcp
+> Instructions: https://exa.ai/docs/get-started/exa-mcp
 
 Then stop.
 
@@ -183,7 +183,7 @@ Requires an Exa API key. Get yours at https://dashboard.exa.ai/api-keys
 
 ## References
 
-- Exa Agent guide: https://docs.exa.ai/reference/agent-api-guide
-- Exa MCP setup: https://docs.exa.ai/reference/exa-mcp
-- Websets (verified list-building at scale): https://docs.exa.ai/websets/api/overview
-- Full docs for LLMs: https://docs.exa.ai/llms.txt
+- Exa Agent guide: https://exa.ai/docs/agent/quickstart
+- Exa MCP setup: https://exa.ai/docs/get-started/exa-mcp
+- Websets (verified list-building at scale): https://exa.ai/docs/websets/quickstart
+- Full docs for LLMs: https://exa.ai/docs/llms.txt

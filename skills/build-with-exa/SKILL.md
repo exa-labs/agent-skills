@@ -20,7 +20,7 @@ Included by default:
 - Historical content: Exa Snapshot (`snapshotAsOf` on search and contents)
 - SDK guidance: Python `exa-py`, TypeScript `exa-js`
 
-> Note on data retention: `/search`, `/answer`, and `/agent/` offer Zero Data Retention (ZDR). Websets and Monitors are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
+> Note on data retention: `/search`, `/contents`, `/answer`, and `/agent` offer Zero Data Retention (ZDR). Websets and the Monitors API (`/monitors`) are not ZDR. If a use case requires ZDR, stay on the ZDR surfaces or contact Exa.
 
 ## Installation
 
