@@ -77,7 +77,7 @@ Design an `outputSchema` with a bounded `companies` array. Keep schemas small, f
 
 Add enrichment fields tailored to the campaign (funding stage, headcount range, headquarters, hiring signals, etc.). Give string fields a length hint in their description to keep CSV output clean.
 
-Use the run inputs for the pieces the old manual pipeline handled by hand:
+Set these run inputs:
 
 - `query` — describe the list: the ICP, geography, stage, and how many companies you want
 - `outputSchema` — the exact structure back, with `maxItems` bounding the companies array
@@ -160,7 +160,7 @@ For lists in the many hundreds, run a few runs sequentially this way rather than
 ## Handling Failures
 
 - If a run ends `failed`, read the error from the `agent_run` result, adjust the query or schema, and retry once with different wording
-- If a client cancellation is needed, abort the in-progress `agent_run` call
+- Aborting an in-progress `agent_run` call does not cancel the run
 - If results are consistently below the requested count, narrow the ICP into 2-3 sub-vertical runs instead of one broad run
 
 ## MCP Configuration

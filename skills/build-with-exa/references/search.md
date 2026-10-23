@@ -81,14 +81,15 @@ Use Exa's primary search types as latency/quality presets:
 | Type | Best For | Tradeoff |
 | --- | --- | --- |
 | `auto` | General default | Best default balance of speed and quality |
-| `fast` | Low-latency apps | Faster than `auto`, slightly less headroom for synthesis-heavy work |
-| `instant` | Real-time apps | Lowest latency path |
+| `lite` | Low-latency, low-cost chat, voice, autocomplete, and agent loops | Cached retrieval with a reduced parameter set |
 | `deep-lite` | Lightweight synthesized output | More reasoning and synthesis than `auto` |
 | `deep` | Multi-step synthesis; wide or multi-search `outputSchema` | Higher latency; runs several searches, so more schema fields come back filled |
 | `deep-reasoning` | Hardest research tasks | Highest reasoning depth and highest latency |
 
+With `type: "lite"`, supported parameters are `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`. Other documented search parameters are rejected, including `outputSchema`, `systemPrompt`, `stream`, and freshness options such as `contents.maxAgeHours`. Lite serves cached content without fetching pages at query time.
+
 `auto` is the server default. Stay on it unless the use case clearly prioritizes real-time speed, deeper reasoning, or configuration control.
-`outputSchema` works across search types, so do not pick a deep variant only because you want structured output; `deep` is for a wide schema whose fields take more than one search to fill (see Structured Output).
+Use `auto` or a deep variant for `outputSchema`, not `lite`. Choose `deep` when a wide schema takes more than one search to fill (see Structured Output).
 
 ## Nested Contents Options
 

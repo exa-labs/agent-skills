@@ -160,7 +160,7 @@ Use `dataSources` to attach Exa Connect providers to a run. The agent can call t
 {
   "dataSources": [
     { "provider": "similarweb" },
-    { "provider": "fiber_ai" }
+    { "provider": "fiber" }
   ]
 }
 ```

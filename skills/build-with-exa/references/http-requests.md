@@ -114,7 +114,7 @@ curl -X POST "https://api.exa.ai/responses" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $EXA_API_KEY" \
   -d '{
-    "model": "exa-research",
+    "model": "exa-agent",
     "input": "Summarize recent battery recycling policy developments."
   }'
 ```
