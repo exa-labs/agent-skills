@@ -6,7 +6,8 @@ Compatibility layer for OpenAI SDK clients.
 
 - Base docs URL: `https://exa.ai/docs`
 - OpenAI SDK compatibility: `/integrations/openai-sdk`
-- OpenAI Responses API with Exa: `/reference/openai-responses-api-with-exa`
+- Agent via the Responses API: `/integrations/openai-sdk#agent-via-responses-api`
+- Agent API: `/agent/quickstart`
 
 ## Overview
 
@@ -30,8 +31,8 @@ If you instead want to **keep** your current agent and have it call Exa as one o
 
 | Exa Endpoint | OpenAI Interface | Models | Primary Route |
 | --- | --- | --- | --- |
-| `/chat/completions` | Chat Completions API | `exa`, `exa-research`, `exa-research-pro` | Routes to `/answer` or legacy research behavior |
-| `/responses` | Responses API | `exa-research`, `exa-research-pro` | Research-style compatibility path |
+| `/chat/completions` | Chat Completions API | `exa` | Routes to `/answer` |
+| `/responses` | Responses API | `exa-agent` | Routes to the Agent API |
 
 Exa's compatibility layer parses the conversation and forwards the last message into its underlying Exa route.
 
@@ -78,26 +79,25 @@ print(completion.choices[0].message.content)
 
 Use `extra_body` to pass Exa-specific fields such as `text`.
 
-## `/responses` for Research-Style Compatibility
+## `/responses` for Agent Runs
 
-Use `exa-research` or `exa-research-pro` when the caller expects the OpenAI Responses API shape.
+Use model `exa-agent` to run Exa Agent (multi-step research, enrichment, list-building) through the OpenAI Responses interface. Pick an execution mode:
+
+- Default: the request blocks and returns the completed response.
+- `stream: true`: streams Responses events over SSE, ending with `response.completed`.
+- `background: true`: returns an `in_progress` response at once. Poll `GET /responses/{id}` for the result.
+
+Set `reasoning.effort` to trade cost against depth. `high`, `xhigh`, and `ultra` runs return `400` unless you set `stream` or `background`. Continue a completed run with `previous_response_id`.
 
 ```python
 response = client.responses.create(
-    model="exa-research",
-    input="Summarize recent battery recycling policy developments."
+    model="exa-agent",
+    input="Find the top 5 AI startups founded in 2025 with their funding amounts",
+    reasoning={"effort": "medium"},
 )
 
-print(response.output)
+print(response.output_text)
 ```
-
-## Model Routing Guidance
-
-- `exa`: chat-completions compatibility for answer-like flows
-- `exa-research`: research-style compatibility
-- `exa-research-pro`: higher-effort research-style compatibility
-
-Treat these as compatibility-layer model names, not as replacements for learning Exa's native endpoint semantics.
 
 ## Critical Pitfalls
 

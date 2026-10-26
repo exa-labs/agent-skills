@@ -79,11 +79,13 @@ result = exa.search(
 
 Current Python SDK docs explicitly say `search()` returns text contents with a 10,000-character default unless you disable contents. If you do not want that default behavior, pass `contents=False`.
 
-### Helper Methods and Namespace Nuance
+### Helper Methods
 
-The Python SDK also exposes helpers such as `search_and_contents(...)`. They exist, but this skill treats them as helper ergonomics rather than the primary surface. Normative endpoint choice in this skill stays aligned to `/search` and `/contents`.
+The Python SDK's `search_and_contents(...)` helper is deprecated. Use `search(...)`, which returns contents, and `get_contents(...)`.
 
-For newer resource families such as `monitors` and `websets`, current Exa examples often pass API-shaped `params` dicts rather than fully snake_cased keyword arguments. Follow the resource-specific docs there instead of assuming the core search-method casing rules apply unchanged.
+### Monitors and Websets
+
+`monitors` and `websets` methods take a `params` dict shaped like the API request body, with camelCase keys, instead of snake_case keyword arguments. Follow those resources' docs rather than the naming rules above.
 
 ## TypeScript SDK (`exa-js`)
 

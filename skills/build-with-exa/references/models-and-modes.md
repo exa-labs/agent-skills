@@ -44,8 +44,7 @@ In OpenAI-compatible flows, current model routing is:
 | Model | Typical Use |
 | --- | --- |
 | `exa` | Answer-style compatibility via `/chat/completions` |
-| `exa-research` | Research-style compatibility |
-| `exa-research-pro` | Higher-effort research-style compatibility |
+| `exa-agent` | Exa Agent runs via `/responses` |
 
 These are compatibility-layer names. Native Exa endpoint choice remains the more important design decision.
 
