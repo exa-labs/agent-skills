@@ -172,15 +172,14 @@ For a latency-critical UX, start with:
 
 ```json
 {
-  "type": "instant",
+  "type": "lite",
   "contents": {
-    "highlights": true,
-    "maxAgeHours": -1
+    "highlights": true
   }
 }
 ```
 
-This keeps the path fast: `instant` minimizes retrieval latency, bare `highlights` keeps payloads compact, and `maxAgeHours: -1` skips live-crawl overhead by using cache only.
+Lite provides low-latency, low-cost retrieval from cached content, and bare `highlights` keeps payloads compact. Lite rejects freshness options such as `contents.maxAgeHours`. Use `auto` when the request needs live fetching.
 
 ## Structured Output Patterns
 
