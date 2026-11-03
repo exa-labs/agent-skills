@@ -56,6 +56,7 @@ exa = Exa(api_key="YOUR_EXA_API_KEY")
 - `agent.runs.get(...)`
 - `agent.runs.list(...)`
 - `agent.runs.poll_until_finished(...)`
+- `openai.web_search()`, `anthropic.web_search()`, `tools.web_search()` (LLM tool helpers that ask the model for `query` and `objective`)
 - `monitors.*`
 - `websets.*`
 
@@ -114,6 +115,7 @@ const exa = new Exa();
 - `agent.runs.get(...)`
 - `agent.runs.list(...)`
 - `agent.runs.pollUntilFinished(...)`
+- `openai.webSearch()`, `anthropic.webSearch()`, `tools.webSearch()` (LLM tool helpers that ask the model for `query` and `objective`)
 - `monitors.*`
 - `websets.*`
 

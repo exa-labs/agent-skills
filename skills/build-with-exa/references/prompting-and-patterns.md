@@ -107,6 +107,8 @@ It matters less on:
 
 For existing agent loops, the common Exa integration is to expose `exa.search` as a tool the LLM picks. This is different from the OpenAI-compatible endpoints in [openai-compat.md](openai-compat.md): tool calling keeps your existing LLM provider, the compat endpoints replace it.
 
+Prefer the SDK tool helpers, such as `exa.openai.web_search()`, `exa.anthropic.web_search()` and `exa.tools.web_search()` in Python, or `webSearch()` on the same namespaces in TypeScript. They ask the model for `query` and `objective` on every call and run the recommended request. To own the tool schema yourself, use one of the definitions below.
+
 OpenAI tool definition:
 
 ```python
@@ -160,7 +162,7 @@ def exa_search(query: str, objective: str | None = None):
 Design tips:
 
 - Say "search the live web" in the description so the LLM picks Exa for fresh-info queries
-- Let the LLM choose `query` and `objective`, and forward both to `exa.search` unchanged; the recommended `objective` description is at https://docs.exa.ai/search/best-practices#pass-the-objective-from-agents
+- Let the LLM choose `query` and `objective`, and forward both to `exa.search` unchanged; the recommended `objective` description is at https://exa.ai/docs/search/best-practices#pass-the-objective-from-agents
 - Do not expose or hardcode categories, domain filters, or result counts the user never asked for
 - Return `highlights` rather than full `text` to keep tool-result tokens small
 - Add separate `exa_answer` or `exa_get_contents` tools instead of overloading one search tool when the agent also needs grounded answers or known-URL extraction
