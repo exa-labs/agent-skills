@@ -52,7 +52,7 @@ The recommended Exa search request is the query plus token-efficient content ext
 }
 ```
 
-**Every other request field is gated: add it only when the user's task explicitly requires it.** Do not restate server defaults, and do not add controls because they seem plausibly useful. In particular:
+**Every other request field except `objective` is gated: add it only when the user's task explicitly requires it.** Do not restate server defaults, and do not add controls because they seem plausibly useful. In particular:
 
 - `type` defaults to `auto`; stating `type: "auto"` explicitly is fine, but do not send another mode unless the task requires it (for example a latency-critical UX or deep synthesis).
 - `numResults` defaults to 10; omit `numResults` unless the task requires a different number of results. Set it only as an intentional product decision, not as boilerplate.
@@ -61,12 +61,14 @@ The recommended Exa search request is the query plus token-efficient content ext
 - `maxAgeHours` should be set only when extracted page content must be current. It caps cache age before a live crawl; it is not a publication-recency filter.
 - For "recent stories" tasks, put the recency in the query ("latest", "recent"). `startPublishedDate` / `endPublishedDate` are hard filters that drop undated and misdated pages; add them only when the task states a bounded window that must be enforced ("from the last seven days", "published in 2026"). Do not reach for `maxAgeHours`.
 - `highlights` should be set to `true` by default for all tasks unless otherwise specified. Do not add `maxCharacters` or other highlight options without an explicit budget requirement in the task.
+- `objective` belongs on every search that is one step of a larger task, such as a search an LLM agent calls as a tool, a query a model writes, or one step of a multi-step pipeline. Set it to the goal that search serves. Say which documents should rank first, which to exclude, and which facts or figures to pull. When an LLM calls search as a tool, the model writes `objective` alongside `query`. See Search as an LLM Tool.
 
 ## API Decision Workflow
 
 Before picking an endpoint, decide which workflow shape fits:
 
 - Raw web content for your own LLM or agent: use `/search` with the recommended request above
+- Web search as a tool your LLM or agent calls: use the SDK tool helpers, which ask the model for `query` and `objective` on every call. See Search as an LLM Tool.
 - A specific output shape, or fields that have to be extracted or synthesized from the pages: use `/search` and add `outputSchema` (and `systemPrompt` if behavior guidance is needed). The user does not have to say "JSON" or "schema": "the funding amount each article reports", "name, title, and company for each person", or a field the result must carry that result metadata only sometimes has (a required author) are all structured-output requests. Fields every result already carries (title, URL, published date) are not: "10 articles with title and URL" is the recommended request with `numResults`. A compact schema (author and URL per article) stays on `auto`; `type: "deep"` when the schema is wide or its fields take more than one search to fill, since it runs several. See Structured Output in `references/search.md`.
 - Long-running multi-step research, list-building, or enrichment with structured output: use the Agent API (`/agent`), with the same `outputSchema` rule for its fields
 
@@ -134,8 +136,50 @@ curl -X POST "https://api.exa.ai/search" \
   }'
 ```
 
+## Search as an LLM Tool
+
+When an LLM decides when to search, give it Exa search as a tool. The SDK helpers build the tool definition, run the model's calls and format the results. The search tool asks the model for `query` and `objective` on every call and runs the recommended request.
+
+**Python** (OpenAI Chat Completions):
+
+```python
+from exa_py import Exa
+from openai import OpenAI
+
+exa = Exa()  # reads EXA_API_KEY from the environment
+openai_client = OpenAI()
+messages = [{"role": "user", "content": "What's the latest on AI chips?"}]
+
+completion = openai_client.chat.completions.create(
+    model="gpt-5.6",
+    messages=messages,
+    tools=[exa.openai.web_search(), exa.openai.get_contents()],
+)
+message = completion.choices[0].message
+messages.append(message)
+messages += exa.openai.handle_tool_calls(message)
+```
+
+Repeat the request and handler step until the model replies without tool calls.
+
+| Provider | Python | TypeScript |
+| --- | --- | --- |
+| OpenAI Chat Completions | `exa.openai.web_search()`, `exa.openai.handle_tool_calls(message)` | `exa.openai.webSearch()`, `exa.openai.handleToolCalls(message)` |
+| OpenAI Responses | `exa.openai.responses.web_search()`, `exa.openai.responses.handle_tool_calls(response)` | `exa.openai.responses.webSearch()`, `exa.openai.responses.handleToolCalls(response)` |
+| Anthropic Messages | `exa.anthropic.web_search()`, `exa.anthropic.handle_tool_use(response)` | `exa.anthropic.webSearch()`, `exa.anthropic.handleToolUse(response)` |
+| Any other framework | `exa.tools.web_search()`, a provider-neutral spec with a `run` method | `exa.tools.webSearch()`, a provider-neutral spec with a `run` method |
+
+If you define the tool yourself, make `objective` a required string parameter next to `query`, give it this description verbatim, and pass the model's value to `search` unchanged:
+
+```text
+Goal for this search turn; say which documents should rank first, which should be excluded, and what specific facts or figures to pull from them.
+```
+
+Full hand-written tool definitions for OpenAI and Anthropic are in [references/prompting-and-patterns.md](references/prompting-and-patterns.md).
+
 ## Critical Pitfalls
 
+- Do not give an LLM a search tool that takes only `query`. Use the SDK tool helpers, or add `objective` as a required parameter with the recommended description and pass it to `search` unchanged.
 - Do not decorate the recommended request without reason. Adding `category`, domain filters, boilerplate `numResults`, or freshness controls without an explicit task requirement is the most common integration mistake.
 - Do not answer an extraction request with a bare search. A field that has to come out of the page, or a metadata field the user requires on every result, goes in `outputSchema`; keep/drop rules go in `systemPrompt`; `query` is retrieval intent only. If a clause of the query says `only`, `include`, `exclude`, `drop`, or `return`, it is in the wrong field. Do not add `outputSchema` for fields every result already carries (title, URL, published date).
 - On the search endpoint, `text`, `highlights`, and `summary` belong inside `contents`, not at the top level.
@@ -175,6 +219,6 @@ curl -X POST "https://api.exa.ai/search" \
 - Search reference: `https://exa.ai/docs/reference/search`
 - Agent API guide: `https://exa.ai/docs/agent/quickstart`
 - Exa Snapshot: `https://exa.ai/docs/search/snapshot`
-- Exa Connect overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Exa Connect overview: `https://exa.ai/docs/agent/connect/overview`
 - Python SDK spec: `https://exa.ai/docs/sdks/quickstart`
 - TypeScript SDK spec: `https://exa.ai/docs/sdks/quickstart`

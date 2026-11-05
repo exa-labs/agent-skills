@@ -57,6 +57,8 @@ POST https://api.exa.ai/search
 
 Encode intent in the query itself: subject, constraints, time window, and source preferences all belong in natural language before they belong in request parameters.
 
+When the search is one step of a larger task, such as a search an LLM agent calls as a tool, also send `objective` with the goal that search serves. See `objective` under Other Request Parameters.
+
 ## Other Request Parameters
 
 Every parameter below changes behavior away from the server defaults. Add one only when the task requires it.

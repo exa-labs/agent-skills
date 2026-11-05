@@ -11,7 +11,7 @@ Frequent Exa parameter-shape, over-specification, and deprecation mistakes, with
 
 ## Over-Specification
 
-The most common failure mode is decorating the recommended request. The recommended search request is `query`, `type: "auto"`, plus `contents: {"highlights": true}` and nothing else; every other field needs an explicit task requirement.
+The most common failure mode is decorating the recommended request. The recommended search request is `query`, `type: "auto"`, plus `contents: {"highlights": true}` and nothing else; every other field needs an explicit task requirement. The exception is `objective`, which belongs on every search that is one step of a larger task.
 
 | Wrong | Correct |
 | --- | --- |
@@ -28,6 +28,13 @@ The most common failure mode is decorating the recommended request. The recommen
 | `maxAgeHours` or date filters added without a stated freshness need | Omit freshness controls unless the task requires them |
 | `startPublishedDate` / `endPublishedDate` for "recent" or "latest" alone | Phrase that recency in the query; date filters are for task-stated bounded windows that must be enforced ("the last seven days", "in 2026") |
 | New collection-building on `/websets/v0` | Use the Agent API (`/agent`); see [migrate-websets-to-agent.md](migrate-websets-to-agent.md) |
+
+## Agent Search Tools
+
+| Wrong | Correct |
+| --- | --- |
+| A search tool for an LLM that takes only `query` | Use the SDK tool helpers (`exa.openai.web_search()`, `exa.anthropic.web_search()`, `exa.tools.web_search()`), or add `objective` as a required tool parameter with the recommended description and pass it to `search` unchanged |
+| A hand-written description for the `objective` tool parameter | Use the recommended wording verbatim: "Goal for this search turn; say which documents should rank first, which should be excluded, and what specific facts or figures to pull from them." |
 
 ## Shape and Deprecation Corrections
 

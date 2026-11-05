@@ -11,7 +11,7 @@ Async multi-step research, list-building, enrichment, and structured extraction 
 - List run events: `https://exa.ai/docs/reference/agent-api/list-run-events`
 - Cancel a run: `https://exa.ai/docs/reference/agent-api/cancel-a-run`
 - Delete a run: `https://exa.ai/docs/reference/agent-api/delete-a-run`
-- Exa Connect overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Exa Connect overview: `https://exa.ai/docs/agent/connect/overview`
 - Connect combining providers: `https://exa.ai/docs/agent/connect/combining-providers`
 - Connect providers: `https://exa.ai/docs/agent/connect/fiber`, `https://exa.ai/docs/agent/connect/similarweb`, `https://exa.ai/docs/agent/connect/baselayer`, `https://exa.ai/docs/agent/connect/affiliatecom`, `https://exa.ai/docs/agent/connect/particle`, `https://exa.ai/docs/agent/connect/financialdatasets`, `https://exa.ai/docs/agent/connect/jinko`, `https://exa.ai/docs/agent/connect/additional-partners`
 
@@ -96,7 +96,7 @@ Completed runs include:
 - `output.structured`: validated JSON matching `outputSchema`, when provided
 - `output.grounding`: citations for text or structured fields
 - `costDollars`: run cost breakdown
-- `stopReason`: `schema_satisfied`, `budget_reached`, `time_limit_reached` (`ultra` only), `stopped`, `error`, or `cancelled`
+- `stopReason`: `schema_satisfied`, `budget_reached`, `time_limit_reached` (`ultra` only), `iteration_limit_reached`, `token_limit_reached`, `stopped`, `error`, or `cancelled`
 
 ## Polling
 
@@ -167,7 +167,7 @@ Use `dataSources` to attach Exa Connect providers to a run. The agent can call t
 
 Use the Connect docs for provider IDs, pricing, and field-specific examples:
 
-- Overview: `https://exa.ai/docs/agent/connect/quickstart`
+- Overview: `https://exa.ai/docs/agent/connect/overview`
 - Combining providers: `https://exa.ai/docs/agent/connect/combining-providers`
 - Provider pages: `fiber`, `similarweb`, `baselayer`, `affiliatecom`, `particle`, `financialdatasets`, `jinko`, and `additional-partners` under `/agent/connect/`
 
