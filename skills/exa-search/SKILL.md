@@ -266,7 +266,6 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 | `results[].author` | string or null | Author when available. |
 | `results[].text` | string | Returned when `contents.text` is requested. |
 | `results[].highlights` | string[] | Returned when `contents.highlights` is requested. |
-| `results[].highlightScores` | number[] | Similarity scores for highlights. |
 | `results[].summary` | string | Returned when `contents.summary` is requested. |
 | `results[].subpages` | array | Nested result objects from subpage crawling. |
 | `results[].extras.links` | string[] | Extracted links when requested. |

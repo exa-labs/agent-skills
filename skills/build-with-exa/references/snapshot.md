@@ -119,13 +119,13 @@ Neither `maxAgeHours: 0` (force a live crawl) nor a published-date filter return
 
 ## Limits
 
-- Pay as you go can query a rolling 5-month window.
+- Pay as you go can query a rolling 5-month window. Please reach out to our team for access to our entire historical coverage.
 - Available on pay as you go at 10 QPS. After 100 Snapshot requests, contact sales (`https://exa.ai/contact/sales`) to continue.
 
 ## Critical Pitfalls
 
 1. Do not answer "snapshot" with a plain `/contents` request or with `maxAgeHours`; only `snapshotAsOf` returns a stored past version.
 2. On `/contents` the field is top level; on `/search` it is nested inside `contents`.
-3. Do not combine `snapshotAsOf` with `maxAgeHours`, `livecrawl`, `livecrawlTimeout`, or `subpages`; the request is rejected with `INVALID_REQUEST`. On `/search`, use `auto` or `lite`. `deep-lite` and entity-category snapshots require account access. `deep` and `deep-reasoning` are not supported.
+3. Do not combine `snapshotAsOf` with `maxAgeHours`, `livecrawl`, `livecrawlTimeout`, or `subpages`; the request is rejected with `INVALID_REQUEST`. On `/search`, use `auto` or `lite`. `deep-lite` requires account access. Exa Snapshot supports all Search categories through the `category` parameter. `deep` and `deep-reasoning` are not supported.
 4. Search results under `snapshotAsOf` are content-bounded, not ranking-bounded; say so when the task is "what would a search have returned then".
 5. Expect omissions: pages without a stored version before the cutoff are dropped (`CONTENT_NOT_CACHED` on `/contents`), so check `statuses` and result counts.
