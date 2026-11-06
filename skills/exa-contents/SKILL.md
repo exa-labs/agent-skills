@@ -168,7 +168,6 @@ curl -sS -X POST "https://api.exa.ai/contents" \
 | `results[].author` | string or null | Author when available. |
 | `results[].text` | string | Returned when `text` is requested. |
 | `results[].highlights` | string[] | Returned when `highlights` is requested. |
-| `results[].highlightScores` | number[] | Similarity scores for highlights. |
 | `results[].summary` | string | Returned when `summary` is requested. |
 | `results[].subpages` | array | Nested result objects from subpage crawling. |
 | `results[].extras.links` | string[] | Extracted links when requested. |
