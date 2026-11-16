@@ -161,6 +161,7 @@ def exa_search(query: str, objective: str | None = None):
 
 Design tips:
 
+- Add the sentence from Tell the model when to search in `SKILL.md` to the agent's system prompt, so the LLM searches instead of answering from out-of-date training data
 - Say "search the live web" in the description so the LLM picks Exa for fresh-info queries
 - Let the LLM choose `query` and `objective`, and forward both to `exa.search` unchanged; the recommended `objective` description is at https://exa.ai/docs/search/best-practices#pass-the-objective-from-agents
 - Do not expose or hardcode categories, domain filters, or result counts the user never asked for

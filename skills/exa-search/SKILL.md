@@ -95,9 +95,9 @@ Use this endpoint when the agent needs search results. If the agent already has 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `query` | string | Yes | - | Natural-language search query. Long, semantically rich descriptions work well. |
-| `type` | string | No | `auto` | Search method: `auto`, `lite`, `deep-lite`, `deep`, or `deep-reasoning`. |
+| `type` | string | No | `auto` | Search method: `auto`, `lite`, `deep-lite`, or `deep`. `deep-reasoning` is legacy. Use `deep` instead. |
 | `numResults` | integer | No | `10` | Number of results to return. Use small values for agent loops; maximum is 100. |
-| `category` | string | No | - | Specialized result type: `company`, `people`, `research paper`, `news`, `personal site`, or `financial report`. |
+| `category` | string | No | - | Specialized result type: `company`, `people`, `publication`, `news`, `personal site`, or `financial report`. |
 | `includeDomains` | string[] | No | - | Only return results from these domains, paths, or wildcard patterns. Max 1200. |
 | `excludeDomains` | string[] | No | - | Exclude these domains, paths, or wildcard patterns. Max 1200. |
 | `startPublishedDate` | string | No | - | ISO 8601 lower bound for result publication date. |
@@ -162,11 +162,10 @@ Search `type` controls the retrieval and synthesis mode. Pick the mode for the w
 | `lite` | Low-latency, low-cost chat, voice, autocomplete, and agent loops | Cached retrieval with a reduced parameter set |
 | `deep-lite` | Lightweight research or synthesis | Adds more planning and synthesis than `auto` while staying lighter than full `deep`. |
 | `deep` | Multi-step research, comparisons, and synthesis-heavy retrieval | Higher latency; better when the query needs exploration across several sources. |
-| `deep-reasoning` | Hard research tasks with high ambiguity or complex tradeoffs | Highest latency and reasoning depth. |
 
 With `type: "lite"`, supported parameters are `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`. Other documented search parameters are rejected, including `outputSchema`, `systemPrompt`, `stream`, and freshness options such as `contents.maxAgeHours`. Lite serves cached content without fetching pages at query time.
 
-Use `auto` unless latency or reasoning depth is the primary constraint. Use `lite` for time-sensitive or cost-sensitive calls. Use `deep`, `deep-lite`, or `deep-reasoning` when the query needs multi-step source discovery, comparison, or synthesis.
+Use `auto` unless latency or reasoning depth is the primary constraint. Use `lite` for time-sensitive or cost-sensitive calls. Use `deep` or `deep-lite` when the query needs multi-step source discovery, comparison, or synthesis. For long-running research, use the Agent API (`https://exa.ai/docs/agent/quickstart`).
 
 ### Mode-only examples
 
@@ -281,7 +280,7 @@ Treat streaming as SSE rather than JSON. Each `data:` frame contains an OpenAI-c
 - Do not send `tokensNum`; use `contents.text.maxCharacters` to cap extracted text.
 - Do not use `useAutoprompt`, `numSentences`, or `highlightsPerUrl` in new requests.
 - Use `contents.maxAgeHours` instead of `livecrawl`.
-- Use documented categories only: `company`, `people`, `research paper`, `news`, `personal site`, and `financial report`.
+- Use documented categories only: `company`, `people`, `publication`, `news`, `personal site`, and `financial report`.
 - Avoid invalid category/filter combinations. `company` and `people` do not support `startPublishedDate` or `endPublishedDate`. `company` supports `excludeDomains`; `people` does not, and `people` only accepts LinkedIn domains in `includeDomains`.
 - Pick one of `contents.highlights`, `contents.text`, or `contents.summary` by default. Stack modes only when the caller truly needs multiple views of each page.
 - Expect SSE only when `stream: true` is paired with `outputSchema`; otherwise `/search` returns its normal JSON response.
