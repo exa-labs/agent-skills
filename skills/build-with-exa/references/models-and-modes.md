@@ -18,7 +18,6 @@ Exa's primary search modes for new work:
 | `lite` | Low-latency, low-cost chat, voice, autocomplete, and agent loops | Cached retrieval with a reduced parameter set |
 | `deep-lite` | You want lightweight synthesis | More reasoning than default modes |
 | `deep` | You need deeper synthesized retrieval, or a wide `outputSchema` whose fields take more than one search to fill | Higher latency; runs several searches, so more schema fields come back filled |
-| `deep-reasoning` | You want the strongest research-style reasoning | Highest latency |
 
 With `type: "lite"`, supported parameters are `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`. Other documented search parameters are rejected, including `outputSchema`, `systemPrompt`, `stream`, and freshness options such as `contents.maxAgeHours`. Lite serves cached content without fetching pages at query time.
 
@@ -49,11 +48,7 @@ In OpenAI-compatible flows, current model routing is:
 
 These are compatibility-layer names. Native Exa endpoint choice remains the more important design decision.
 
-Use `deep-reasoning` when:
-
-- the task needs multi-step synthesized retrieval
-- you want a current Exa-first path instead of the legacy research surface
-- you need a replacement for legacy `/research/v1` structured output flows
+`deep-reasoning` is legacy. Use `deep` instead, or the Agent API ([agent.md](agent.md)) for long-running research, list building and multi-hop enrichment.
 
 ## Practical Defaults
 

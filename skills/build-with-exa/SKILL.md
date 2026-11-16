@@ -32,7 +32,7 @@ pip install exa-py
 npm install exa-js
 ```
 
-Install the latest SDK release with the package manager so it resolves the latest release and all SDK surfaces will be available.
+Install the latest SDK release into the project's own environment, with the package manager the project already uses, so it resolves the latest release and all SDK surfaces will be available. Test the integration by running the project's own code.
 
 ## Authentication
 
@@ -62,6 +62,18 @@ The recommended Exa search request is the query plus token-efficient content ext
 - For "recent stories" tasks, put the recency in the query ("latest", "recent"). `startPublishedDate` / `endPublishedDate` are hard filters that drop undated and misdated pages; add them only when the task states a bounded window that must be enforced ("from the last seven days", "published in 2026"). Do not reach for `maxAgeHours`.
 - `highlights` should be set to `true` by default for all tasks unless otherwise specified. Do not add `maxCharacters` or other highlight options without an explicit budget requirement in the task.
 - `objective` belongs on every search that is one step of a larger task, such as a search an LLM agent calls as a tool, a query a model writes, or one step of a multi-step pipeline. Set it to the goal that search serves. Say which documents should rank first, which to exclude, and which facts or figures to pull. When an LLM calls search as a tool, the model writes `objective` alongside `query`. See Search as an LLM Tool.
+
+### Primary and official sources
+
+For a research question that a primary or official source should settle, such as a regulator's rule, a company's filing, a clinical guideline or an agency's statistics, start the query with this sentence on `auto` and `lite`:
+
+```text
+Prefer a specific primary or official answer page.
+```
+
+For example, `"Prefer a specific primary or official answer page. Reporting requirements for crypto-asset service providers under MiCA"`.
+
+Add it only to those questions. On lookups of a specific page, local, product or how-to questions and quick facts, it replaces the page that answers with a generic official one, so send those queries unchanged. When one search function serves both kinds of question, decide per query. Phrase the preference positively. Wording such as "avoid content farms" retrieves the pages it names.
 
 ## API Decision Workflow
 
@@ -148,7 +160,13 @@ from openai import OpenAI
 
 exa = Exa()  # reads EXA_API_KEY from the environment
 openai_client = OpenAI()
-messages = [{"role": "user", "content": "What's the latest on AI chips?"}]
+messages = [
+    {
+        "role": "system",
+        "content": "Call web_search before answering unless you're certain the answer can't have changed since your training cutoff.",
+    },
+    {"role": "user", "content": "What's the latest on AI chips?"},
+]
 
 completion = openai_client.chat.completions.create(
     model="gpt-5.6",
@@ -177,11 +195,23 @@ Goal for this search turn; say which documents should rank first, which should b
 
 Full hand-written tool definitions for OpenAI and Anthropic are in [references/prompting-and-patterns.md](references/prompting-and-patterns.md).
 
+### Tell the model when to search
+
+Agents that use Exa as a tool perform best when their system prompt says when to search. Without that line, models often answer from training data that is out of date. Add this sentence to the agent's existing system prompt, with your tool's name in place of `web_search`:
+
+```text
+Call web_search before answering unless you're certain the answer can't have changed since your training cutoff.
+```
+
+Keep the rest of the system prompt as it is. If the agent has no system prompt, this sentence can be the whole system prompt.
+
 ## Critical Pitfalls
 
 - Do not give an LLM a search tool that takes only `query`. Use the SDK tool helpers, or add `objective` as a required parameter with the recommended description and pass it to `search` unchanged.
+- Do not give an LLM a search tool without system prompt guidance like the example from Tell the model when to search. Without it, models often skip search and answer from out-of-date training data.
 - Do not decorate the recommended request without reason. Adding `category`, domain filters, boilerplate `numResults`, or freshness controls without an explicit task requirement is the most common integration mistake.
 - Do not answer an extraction request with a bare search. A field that has to come out of the page, or a metadata field the user requires on every result, goes in `outputSchema`; keep/drop rules go in `systemPrompt`; `query` is retrieval intent only. If a clause of the query says `only`, `include`, `exclude`, `drop`, or `return`, it is in the wrong field. Do not add `outputSchema` for fields every result already carries (title, URL, published date).
+- Do not add `Prefer a specific primary or official answer page.` to every query. It helps research questions that a primary or official source should settle and hurts page lookups, local, product and how-to questions, and quick facts.
 - On the search endpoint, `text`, `highlights`, and `summary` belong inside `contents`, not at the top level.
 - On the contents endpoint, `text`, `highlights`, and `summary` are top-level fields, not nested inside `contents`.
 - Pick one of `highlights`, `text`, or `summary`. Do not stack them. `summary` requires an explicit user request for Exa-side per-result synthesis.

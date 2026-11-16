@@ -86,7 +86,6 @@ Use Exa's primary search types as latency/quality presets:
 | `lite` | Low-latency, low-cost chat, voice, autocomplete, and agent loops | Cached retrieval with a reduced parameter set |
 | `deep-lite` | Lightweight synthesized output | More reasoning and synthesis than `auto` |
 | `deep` | Multi-step synthesis; wide or multi-search `outputSchema` | Higher latency; runs several searches, so more schema fields come back filled |
-| `deep-reasoning` | Hardest research tasks | Highest reasoning depth and highest latency |
 
 With `type: "lite"`, supported parameters are `query` (a single string), `objective`, `userIdentifier`, `metadata`, `category`, `numResults`, `contents.highlights`, `contents.text`, `contents.snapshotAsOf`, `userLocation`, `includeDomains`, `excludeDomains`, `startPublishedDate`, `endPublishedDate`, `moderation`, and `compliance`. Other documented search parameters are rejected, including `outputSchema`, `systemPrompt`, `stream`, and freshness options such as `contents.maxAgeHours`. Lite serves cached content without fetching pages at query time.
 

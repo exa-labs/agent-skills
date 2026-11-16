@@ -67,7 +67,7 @@ Prefer the search endpoint when:
 - the product already has a chat LLM (expose `/search` as a tool)
 - your application needs the result list itself
 - you want explicit control over `contents` modes on each result
-- you want deeper synthesized search flows via `deep` or `deep-reasoning`
+- you want deeper synthesized search flows via `deep-lite` or `deep`
 
 ## Structured Output
 
