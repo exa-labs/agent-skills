@@ -5,8 +5,7 @@ Practical naming and surface guide for `exa-py` and `exa-js`.
 ## Canonical Docs Links
 
 - Base docs URL: `https://exa.ai/docs`
-- Python SDK spec: `/sdks/python-sdk-specification`
-- TypeScript SDK spec: `/sdks/typescript-sdk-specification`
+- SDK quickstart (Python and TypeScript): `/sdks/quickstart`
 - Python README: `https://github.com/exa-labs/exa-py`
 - JavaScript README: `https://github.com/exa-labs/exa-js`
 
