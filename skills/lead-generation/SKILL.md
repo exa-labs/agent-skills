@@ -1,11 +1,11 @@
 ---
 name: lead-generation
-description: Generate enriched lead lists using Exa Agent. Finds companies matching an ICP, enriches with signals/news/scores, and outputs CSV. Use when generating leads, building prospect lists, finding companies to sell to, doing outbound research, or ICP-based company discovery. Triggers on "leads", "lead gen", "prospect list", "find companies", "ICP", "outbound list".
+description: Generate enriched lead lists using Exa Agent. Finds companies matching an ICP, enriches them with signals, news, and scores, and outputs CSV. Use when generating sales leads, building prospect lists, finding companies for outbound work, or doing ICP-based company discovery. Use company-research instead for a single-company deep dive.
 ---
 
 # Lead Generation with Exa Agent
 
-Generate enriched lead lists using the Exa Agent API. An Agent run is an asynchronous, multi-step web research task: you describe the list you want plus an output schema, and Exa handles query decomposition, searching, verification, enrichment, and structured output internally. You do NOT need to orchestrate parallel searches, subagents, or manual deduplication.
+Generate enriched lead lists using the Exa Agent API. An Agent run is an asynchronous, multi-step web research task: describe the list plus an output schema, and Exa handles query decomposition, searching, verification, enrichment, and structured output internally. Do not add parallel search orchestration or manual deduplication unless the returned data requires it.
 
 For very large or continuously maintained lead lists with per-item verification, consider Exa Websets instead: https://exa.ai/docs/websets/quickstart
 
@@ -22,7 +22,7 @@ Then stop.
 
 ## Tool Restriction
 
-Use `agent_run`, plus Write and Bash (for CSV output). Do NOT use generic web search for the lead list itself.
+Use `agent_run` and the host's available file-writing capability for CSV output. Do not use generic web search for the lead list itself.
 
 ## Workflow
 
@@ -133,7 +133,7 @@ Do not paste the full raw output into the conversation — go straight to CSV.
 
 ## Step 4: Write the CSV
 
-Write `output.structured.companies` to `{target_company}_leads_{YYYY-MM-DD}.csv`, sorted by `icp_fit_score` descending. Join any array fields with " | ". Use Python's `csv.writer` (handles quoting/escaping) via Bash, or Write directly for small lists.
+Write `output.structured.companies` to `{target_company}_leads_{YYYY-MM-DD}.csv`, sorted by `icp_fit_score` descending. Join array fields with ` | ` and use a CSV-aware writer so commas, quotes, and newlines are escaped correctly.
 
 Print a summary:
 
